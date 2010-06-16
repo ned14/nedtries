@@ -37,6 +37,7 @@ DEALINGS IN THE SOFTWARE.
 #include "nedtrie.h"
 #include "rbtree.h"
 #include "llrbtree.h"
+#include "uthash/src/uthash.h"
 
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
@@ -145,7 +146,43 @@ typedef struct AlgorithmInfo_t
 #undef REGION_FOREACH
 #undef REGION_HASNODEHEADER
 
-#define ALGORITHMS 2
+#define BENCHMARK_PREFIX(foo)                     hash_##foo
+#define BENCHMARK_NOHEADTYPE
+#define REGION_ENTRY(type)                        UT_hash_handle
+#define REGION_HEAD(name, type)                   typedef struct type *name
+#define REGION_INIT(treevar)                      (*(treevar)=NULL)
+#define REGION_EMPTY(treevar)                     (!HASH_CNT(link, (*(treevar))))
+#define REGION_GENERATE(proto, treetype, nodetype, link, cmpfunct) static nodetype *HashFind(treetype *head, size_t *key) { nodetype *ret=0; HASH_FIND(link, *head, key, sizeof(*key), ret); return ret; }
+#define REGION_INSERT(treetype, treevar, node)    HASH_ADD(link, (*(treevar)), key, sizeof((node)->key), (node))
+#define REGION_REMOVE(treetype, treevar, node)    HASH_DELETE(link, (*(treevar)), (node))
+#define REGION_FIND(treetype, treevar, node)      HashFind(treevar, &(node)->key)
+#define REGION_NFIND(treetype, treevar, node)     fail
+#define REGION_MAX(treetype, treevar)             fail
+#define REGION_MIN(treetype, treevar)             (*(treevar))
+#define REGION_NEXT(treetype, treevar, node)      ((treetype)((node)->link.next))
+#define REGION_PREV(treetype, treevar, node)      ((treetype)((node)->link.prev))
+#define REGION_FOREACH(var, treetype, treevar)    fail
+#define REGION_HASNODEHEADER(treevar, node, link) fail
+#include "benchmark.c.h"
+#undef BENCHMARK_PREFIX
+#undef BENCHMARK_NOHEADTYPE
+#undef REGION_ENTRY
+#undef REGION_HEAD
+#undef REGION_INIT
+#undef REGION_EMPTY
+#undef REGION_GENERATE
+#undef REGION_INSERT
+#undef REGION_REMOVE
+#undef REGION_FIND
+#undef REGION_NFIND
+#undef REGION_MAX
+#undef REGION_MIN
+#undef REGION_NEXT
+#undef REGION_PREV
+#undef REGION_FOREACH
+#undef REGION_HASNODEHEADER
+
+#define ALGORITHMS 3
 int main(void)
 {
   int n, m;
@@ -156,6 +193,8 @@ int main(void)
   nedtrie_RunTest(algorithms+0);
   algorithms[1].name="rbtree";
    rbtree_RunTest(algorithms+1);
+  algorithms[2].name="hash";
+   hash_RunTest(algorithms+2);
 
   oh=fopen(4==sizeof(void *) ? "results32.csv" : "results64.csv", "w");
   assert(oh);

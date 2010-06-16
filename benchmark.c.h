@@ -5,8 +5,13 @@ struct BENCHMARK_PREFIX(region_node_s) {
   REGION_ENTRY(BENCHMARK_PREFIX(region_node_s)) link;
   size_t key;
 };
+#ifndef BENCHMARK_NOHEADTYPE
 typedef struct BENCHMARK_PREFIX(region_tree_s) BENCHMARK_PREFIX(region_tree_t);
 REGION_HEAD(BENCHMARK_PREFIX(region_tree_s), BENCHMARK_PREFIX(region_node_s));
+#else
+REGION_HEAD(BENCHMARK_PREFIX(region_tree_s), BENCHMARK_PREFIX(region_node_s));
+typedef struct BENCHMARK_PREFIX(region_node_s) *BENCHMARK_PREFIX(region_tree_t);
+#endif
 
 #ifdef BENCHMARK_USEKEYFUNCT
 static size_t BENCHMARK_PREFIX(regionFunct)(const BENCHMARK_PREFIX(region_node_t) *a)
