@@ -234,8 +234,17 @@ namespace nedtries {
   {
     return (head->nobbledir=!head->nobbledir);
   }
+/*! \def NEDTRIE_NOBBLEZEROS
+\brief A nobble function which preferentially nobbles zeros.
+*/
 #define NEDTRIE_NOBBLEZEROS(name)   nedtries::trienobblezeros<name>
+/*! \def NEDTRIE_NOBBLEONES
+\brief A nobble function which preferentially nobbles ones.
+*/
 #define NEDTRIE_NOBBLEONES(name)    nedtries::trienobbleones<name>
+/*! \def NEDTRIE_NOBBLEEQUALLY
+\brief A nobble function which alternates between nobbling zeros and ones.
+*/
 #define NEDTRIE_NOBBLEEQUALLY(name) nedtries::trienobbleequally<name>
 #define NEDTRIE_GENERATE_NOBBLES(proto, name, type, field, keyfunct)
 #else
@@ -1088,7 +1097,7 @@ namespace nedtries {
 \brief Returns the item preceding y in nedtrie x.
 */
 #define NEDTRIE_PREV(name, x, y)         name##_NEDTRIE_PREV(x, y)
-/*! \def NEDTRIE_INSERT
+/*! \def NEDTRIE_NEXT
 \brief Returns the item following y in nedtrie x.
 */
 #define NEDTRIE_NEXT(name, x, y)         name##_NEDTRIE_NEXT(x, y)
