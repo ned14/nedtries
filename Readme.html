@@ -1,0 +1,208 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+<title>nedalloc Readme</title>
+<style type="text/css">
+<!--
+body {
+	text-align: justify;
+}
+h1, h2, h3, h4, h5, h6 {
+	margin-bottom: -0.5em;
+}
+h1 {
+	text-align: center;
+}
+h2 {
+	text-decoration: underline;
+	margin-bottom: -0.25em;
+}
+p {
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+}
+ul li, ol li {
+	margin-top: 0.2em;
+	margin-bottom: 0.2em;
+}
+dl {
+	margin-left: 2em;
+}
+dl dt {
+	font-weight: bold;
+}
+dt + dd {
+	margin-bottom: 1em;
+}
+.gitcommit {
+	font-family: "Courier New", Courier, monospace;
+	font-size: smaller;
+}
+-->
+</style>
+</head>
+
+<body>
+
+<div style="text-align: center">
+	<h1 style="text-decoration: underline">nedtries v1.00 (17th June 2010)</h1>
+	<h2 style="text-decoration: none;">by Niall Douglas</h2>
+	<p>Web site: <a href="http://www.nedprod.com/programs/portable/nedtries/">http://www.nedprod.com/programs/portable/nedtries/</a></p>
+	<hr /></div>
+<p>Enclosed is nedtries, an in-place bitwise binary Fredkin trie algorithm which allows for near 
+constant time insertions, deletions, finds, <strong>closest fit finds</strong> and iteration. On 
+modern hardware it is approximately 50-100% faster than red-black binary trees, it 
+handily beats even the venerable O(1) hash table for less than 3000 objects and 
+it is barely slower than the hash table for 10000 objects. Past 10000 objects 
+you probably ought to use a hash table though.</p>
+<p>It is licensed under the
+<a href="http://www.boost.org/LICENSE_1_0.txt" target="_blank">Boost Software License</a> 
+which basically means you can do anything you like with it. Commercial support is 
+available from <a href="http://www.nedproductions.biz/" target="_blank">ned 
+Productions Limited</a>.</p>
+<p>Its advantages over other algorithms are sizeable:</p>
+<ol>
+	<li>It has all the advantages of red-black trees such as nearest-fit finds 
+	(i.e. find the item which is the closest to the search term) without 
+	anything like the impact on memory bandwidth as red-black trees (i.e. it 
+	scales far better with memory pressure than red-black trees).</li>
+	<li>It doesn&#39;t require dynamic memory like hash tables, so it can be used in 
+	a bounded environment such as a bootstrapper or a tiny embedded systems 
+	kernel. It is also a lot faster than hash tables for less than a few 
+	thousand items.</li>
+	<li>Its performance is nearly perfectly stable over time and number of 
+	contents N with a worst case complexity of O(M) following an inverse 
+	exponential curve average where 1 &lt;= M &lt;= 8*sizeof(void *). M is a measure 
+	of the entropy between differing keys, so where keys are very similar at the 
+	bit level M is 
+	higher than where keys are very dissimilar.</li>
+	<li>Its complexities for find and insert are identical, whereas for deletion 
+	it is more constant. Unlike almost any other algorithm, bitwise binary tries 
+	have nearly identical real world speeds for ALL its operations rather than 
+	being fast at one thing but slow at the others. In other words, if your code 
+	equally inserts, deletes and finds with no preference for which then
+	<span style="text-decoration: underline">this algorithm will beat all others 
+	in the general purpose situation</span>.</li>
+</ol>
+<p>Its primary disadvantage is that it can only key upon a size_t (i.e. the size 
+of a void *), so it cannot make use of an arbitrarily large key like a hash 
+table can (though of course one could hash the large key into a size_t sized 
+key). It also would prefer the key to be as unique as possible, so if you wish 
+to replace a red-black tree which has a complex left-right comparison function 
+which cannot be converted into a stable size_t value then you will need to stick 
+with red-black trees. In other words, it is ideal when you are keying on pointer 
+sized keys where each item has a definitive non-changing key.</p>
+<p>In short, <strong>if 
+you are not already using bitwise tries then you probably ought to be!</strong> 
+Read on for how to add them to your software.</p>
+<h2><a name="implementation">A. Implementation:</a></h2>
+<p>The source makes use of C macros on C and C++ templates on C++ - therefore, 
+unlike typical C-macro-based algorithms it is easy to debug and in fact, the improved 
+metadata specified by the templates lets a modern C++ compiler produce 5-15% 
+faster code through PGO guided selective inlining. The code is 100% standard C and C++, so it should run on any 
+platform or architecture though you <em>may</em> need to implement your own nedtriebitscanr() 
+function if you&#39;re not using GCC nor MSVC and want to keep performance high. If 
+you are building debug, NEDTRIEDEBUG is by default turned on: this causes a 
+complete state validation check to be performed after each and every change to 
+the trie which tends to be very good at catching bugs early, but can make debug 
+builds a little slow.</p>
+<p>So what is &quot;an in-place bitwise binary Fredkin trie algorithm&quot; then? 
+Well you ought to start by reading and fully digesting
+<a href="http://en.wikipedia.org/wiki/Trie" target="_blank">the Wikipedia page 
+on Fredkin tries</a> as what comes won&#39;t make much sense otherwise. The 
+Wikipedia page describes a non-inplace trie which uses dynamic memory to store 
+each consecutive non-differing section of a string, and indeed this is how tries 
+are normally described in algorithm theory and classes. nedtries obviously 
+enough selects on individual bits rather than substrings, and it uses an inplace 
+instead of dynamically allocated implementation.</p>
+<p>Here is how nedtries performs an indexation: firstly, the most significant 
+set bit X is found using nedtriebitscanr() which is no more than one to three 
+CPU cycles on modern processors. This is used to index an array of 
+bins. Each bin X contains a binary tree of items whose keys are (1&lt;&lt;X) &lt;= key &lt; 
+(1&lt;&lt;(X+1)), so what one does is to follow the tree downwards selecting left or 
+right based on whether the next bit downwards is 0 or 1. If an item has 
+children, its key is only guaranteed to be constrained to that of its bin, 
+whereas if an item does not have children then its key is guaranteed to match as 
+closely as possible its position in the tree.</p>
+<p>If you insert an item, nedtries indexes as far as it can down the existing 
+tree where the new item ought to be and inserts it there. If you remove an item, 
+if that item has no children it is simply removed. If it has a child then a 
+nobble function is called to select the bias for how to select the childless 
+item to be nobbled and used as the replacement i.e. one either traverses down 
+preferentially 1 or preferentially 0 until you find a childless item, then you 
+delink it from there and link it in to replace the item being removed.</p>
+<p>If you think about this hard enough, you realise that you will get a &quot;nearly 
+sorted&quot; binary tree i.e. one whose node keys are very nearly in order. In fact, 
+the more randomised the key, the more in order the tree becomes. The tree is 
+usually sufficiently ordered that one can assume it to be so for most 
+operations, but if you need to guarantee order then you can bubble sort per MSB 
+bin as bubble sort performs <em>very</em> well on nearly sorted data (as does 
+smooth sort if you have a very large set of data) .</p>
+<p>The enclosed benchmark.cpp will run a scalability test comparing the bitwise 
+binary trie implementation from nedtries, the red-black binary tree 
+implementation from FreeBSD and the O(1) hash table implementation from
+<a href="http://uthash.sourceforge.net/">http://uthash.sourceforge.net/</a> outputting 
+its results in CSV format. You will also find enclosed a set of precomputed 
+Microsoft Excel spreadsheets which were generated on a 2.67Ghz Intel Core 2 Quad 
+Windows 7 x64 machine. They should be representative of performance on modern 
+hardware - though note that the Intel Atom has a 17 cycle nedtriebitscanr() 
+which is the only modern CPU to be so slow. See
+<a href="http://gmplib.org/~tege/x86-timing.pdf">
+http://gmplib.org/~tege/x86-timing.pdf</a> for x86 and x64 instruction timings.</p>
+<h2><a name="c-usage">B. C Macro Usage:</a></h2>
+<p>Usage via C macros follows the FreeBSD <a href="rbtree.h">rbtree.h</a> 
+format. See the enclosed <a href="nedtries.chm">nedtries.chm</a> for detailed 
+API documentation. Here is some sample code:</p>
+<pre>typedef struct foo_s foo_t;
+struct foo_s {
+  REGION_ENTRY(foo_t) link;
+  size_t key;
+};
+typedef struct foo_tree_s foo_tree_t;
+REGION_HEAD(foo_tree_s, foo_t);
+static foo_tree_t footree;
+
+static size_t fookeyfunct(const foo_t *RESTRICT r)
+{
+  return r-&gt;key;
+}
+
+NEDTRIE_GENERATE(static, foo_tree_s, foo_s, link, fookeyfunct, NEDTRIE_NOBBLEZEROS(foo_tree_s));
+
+int main(void)
+{
+  foo_t a, b, c, *r;
+  NEDTRIE_INIT(&amp;footree);
+  a.key=2;
+  NEDTRIE_INSERT(foo_tree_s, &amp;footree, &amp;a);
+  b.key=6;
+  NEDTRIE_INSERT(foo_tree_s, &amp;footree, &amp;b);
+  r=NEDTRIE_FIND(foo_tree_s, &amp;footree, &amp;b);
+  assert(r==&amp;b);
+  c.key=5;
+  r=NEDTRIE_NFIND(foo_tree_s, &amp;footree, &amp;c);
+  assert(r==&amp;c);
+  NEDTRIE_REMOVE(foo_tree_s, &amp;footree, &amp;a);
+  NEDTRIE_FOREACH(r, foo_tree_s, &amp;footree)
+  {
+    printf(&quot;%p, %u\n&quot;, r, r-&gt;key);
+  }
+  NEDTRIE_PREV(foo_tree_s, &amp;footree, &amp;a);
+  return 0;
+}</pre>
+<p>There isn&#39;t really much more to it - if you want to throw away the trie, 
+simply NEDTRIE_INIT() its head. As no dynamic memory is involved, nothing is 
+lost.</p>
+<h2><a name="changelog0">C. C++ Usage:</a></h2>
+<p>&lt;coming soon&gt;</p>
+<h2><a name="changelog">D. ChangeLog:</a></h2>
+<h3>v1.00 beta 1 (17th June 2010):</h3>
+<ul>
+	<li><span class="gitcommit">[master 89f1806]</span> First release.</li>
+</ul>
+
+</body>
+
+</html>
