@@ -32,7 +32,8 @@ DEALINGS IN THE SOFTWARE.
 #include <assert.h>
 
 #define ALLOCATIONS 4096
-#define AVERAGE 4
+#define AVERAGE 8
+#define ITEMSIZE 0        /* Set =page size to test TLB scaling */
 
 #include "nedtrie.h"
 #include "rbtree.h"
@@ -201,7 +202,7 @@ int main(void)
   if(!oh) abort();
   for(m=0; m<ALGORITHMS; m++)
   {
-    fprintf(oh, "\"Insert (%s)\",\"Find-Changing (%s)\",\"Find-Unchanging (%s)\",\"Remove (%s)\",\"Iterate (%s)\"%c", algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, m==ALGORITHMS-1 ? '\n' : ',');
+    fprintf(oh, "\"Insert (%s)\",\"Find 0-N (%s)\",\"Find N (%s)\",\"Remove (%s)\",\"Iterate (%s)\"%c", algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, m==ALGORITHMS-1 ? '\n' : ',');
     algorithms[m].inserts[0]=algorithms[m].finds1[0]=algorithms[m].finds2[0]=algorithms[m].removes[0]=algorithms[m].iterates[0]=1;
   }
   /* Max out the CPU to try to counter SpeedStep */
@@ -209,25 +210,28 @@ int main(void)
     usCount start=GetUsCount();
     while(GetUsCount()-start<1000000000000);
   }
-	for(n=0; n<ALLOCATIONS-AVERAGE; n++)
+	for(n=0; n<ALLOCATIONS; n++)
 	{
     for(m=0; m<ALGORITHMS; m++)
     {
-      int k;
+      int k, added=0;
       double inserts=0, finds1=0, finds2=0, removes=0, iterates=0;
-      for(k=n; k<n+AVERAGE; k++)
+      for(k=n-AVERAGE/2; k<=n+AVERAGE/2; k++)
       {
+        if(k<0 || k>=ALLOCATIONS) continue;
         inserts+=algorithms[m].inserts[k]/1000000000000.0;
         finds1+=algorithms[m].finds1[k]/1000000000000.0;
         finds2+=algorithms[m].finds2[k]/1000000000000.0;
         removes+=algorithms[m].removes[k]/1000000000000.0;
         iterates+=algorithms[m].iterates[k]/1000000000000.0;
+        added++;
       }
-      fprintf(oh, "%lf,%lf,%lf,%lf,%lf%c", n/(inserts/AVERAGE),
-        n/(finds1/AVERAGE),
-        n/(finds2/AVERAGE),
-        n/(removes/AVERAGE),
-        n/(iterates/AVERAGE),
+      fprintf(oh, "%lf,%lf,%lf,%lf,%lf%c",
+        n/(inserts/added),
+        n/(finds1/added),
+        n/(finds2/added),
+        n/(removes/added),
+        n/(iterates/added),
         m==ALGORITHMS-1 ? '\n' : ',');
     }
 	}

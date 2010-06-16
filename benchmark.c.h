@@ -29,16 +29,24 @@ REGION_GENERATE(static, BENCHMARK_PREFIX(region_tree_s), BENCHMARK_PREFIX(region
 
 static BENCHMARK_PREFIX(region_tree_t) BENCHMARK_PREFIX(regiontree);
 
+typedef struct BENCHMARK_PREFIX(region_node2_s)
+{
+  BENCHMARK_PREFIX(region_node_t) node;
+#if ITEMSIZE > 0
+  char padding[ITEMSIZE<=sizeof(BENCHMARK_PREFIX(region_node_t)) ? 1 : (ITEMSIZE-sizeof(BENCHMARK_PREFIX(region_node_t)))];
+#endif
+} BENCHMARK_PREFIX(region_node2_t);
 static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
 {
-  static BENCHMARK_PREFIX(region_node_s) nodes[ALLOCATIONS], *r;
+  static BENCHMARK_PREFIX(region_node2_s) nodes[ALLOCATIONS];
+  BENCHMARK_PREFIX(region_node_s) *r;
   int l, n, m;
   usCount start, end;
   printf("Running scalability test for %s\n", ai->name);
-  printf("sizeof(REGION_ENTRY)=%d\n", sizeof(nodes[0].link));
+  printf("sizeof(REGION_ENTRY)=%d\n", sizeof(nodes[0].node.link));
   srand(1);
   for(n=0; n<ALLOCATIONS; n++)
-    nodes[n].key=((size_t) rand()<<48)^((size_t) rand()<<32)^((size_t) rand()<<16)^((size_t) rand()<<0);
+    nodes[n].node.key=((size_t) rand()<<48)^((size_t) rand()<<32)^((size_t) rand()<<16)^((size_t) rand()<<0);
   REGION_INIT(&BENCHMARK_PREFIX(regiontree));
   for(m=0; m<ALLOCATIONS; m++)
   {
@@ -51,19 +59,21 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
       {
         int ridx=rand() % (n+1);
         start=GetUsCount();
-        REGION_INSERT(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), nodes+n);
+        REGION_INSERT(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+n)->node);
         end=GetUsCount();
         insert+=end-start;
         start=GetUsCount();
-        REGION_FIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), nodes+ridx);
+        r=REGION_FIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+ridx)->node);
         end=GetUsCount();
+        if(!r) abort();
         find1+=end-start;
       }
       for(n=0; n<m; n++)
       {
         start=GetUsCount();
-        REGION_FIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), nodes+n);
+        r=REGION_FIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+n)->node);
         end=GetUsCount();
+        if(!r) abort();
         find2+=end-start;
       }
       for(r=REGION_MIN(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree)); r;)
@@ -76,15 +86,15 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
       for(n=0; n<m; n++)
       {
         start=GetUsCount();
-        REGION_REMOVE(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), nodes+n);
+        REGION_REMOVE(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+n)->node);
         end=GetUsCount();
         remove+=end-start;
       }
     }
-    ai->inserts[m]=insert/l;
-    ai->finds1[m]=find1/l;
-    ai->finds2[m]=find2/l;
-    ai->removes[m]=remove/l;
-    ai->iterates[m]=iterate/l;
+    ai->inserts[m]=(usCount)((double) insert/l);
+    ai->finds1[m]=(usCount)((double)find1/l);
+    ai->finds2[m]=(usCount)((double)find2/l);
+    ai->removes[m]=(usCount)((double)remove/l);
+    ai->iterates[m]=(usCount)((double)iterate/l);
   }
 }
