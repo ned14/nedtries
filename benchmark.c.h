@@ -14,12 +14,12 @@ typedef struct BENCHMARK_PREFIX(region_node_s) *BENCHMARK_PREFIX(region_tree_t);
 #endif
 
 #ifdef BENCHMARK_USEKEYFUNCT
-static size_t BENCHMARK_PREFIX(regionFunct)(const BENCHMARK_PREFIX(region_node_t) *a)
+size_t BENCHMARK_PREFIX(regionFunct)(const BENCHMARK_PREFIX(region_node_t) *a)
 {
   return a->key;
 }
 #else
-static int BENCHMARK_PREFIX(regionFunct)(const BENCHMARK_PREFIX(region_node_t) *a, const BENCHMARK_PREFIX(region_node_t) *b)
+int BENCHMARK_PREFIX(regionFunct)(const BENCHMARK_PREFIX(region_node_t) *a, const BENCHMARK_PREFIX(region_node_t) *b)
 {
   return (a->key > b->key) - (a->key < b->key);
 }
@@ -43,7 +43,7 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
   int l, n, m;
   usCount start, end;
   printf("Running scalability test for %s\n", ai->name);
-  printf("sizeof(REGION_ENTRY)=%d\n", sizeof(nodes[0].node.link));
+  printf("sizeof(REGION_ENTRY)=%d\n", (int) sizeof(nodes[0].node.link));
   srand(1);
   for(n=0; n<ALLOCATIONS; n++)
     nodes[n].node.key=((size_t) rand()<<48)^((size_t) rand()<<32)^((size_t) rand()<<16)^((size_t) rand()<<0);

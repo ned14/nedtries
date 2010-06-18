@@ -40,6 +40,11 @@ DEALINGS IN THE SOFTWARE.
 #include "llrbtree.h"
 #include "uthash/src/uthash.h"
 
+#ifdef __cplusplus
+#include <map>
+#include <unordered_map>
+#endif
+
 #ifdef WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -183,26 +188,108 @@ typedef struct AlgorithmInfo_t
 #undef REGION_FOREACH
 #undef REGION_HASNODEHEADER
 
-#define ALGORITHMS 3
+#ifdef __cplusplus
+static size_t nodekeys[ALLOCATIONS];
+template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
+{
+  stlcontainer nodes;
+  typename stlcontainer::iterator it;
+  int l, n, m;
+  usCount start, end;
+  printf("Running scalability test for %s\n", ai->name);
+  srand(1);
+  for(n=0; n<ALLOCATIONS; n++)
+    nodekeys[n]=((size_t) rand()<<48)^((size_t) rand()<<32)^((size_t) rand()<<16)^((size_t) rand()<<0);
+  for(m=0; m<ALLOCATIONS; m++)
+  {
+    usCount insert=0, find1=0, find2=0, remove=0, iterate=0;
+    int lmax=(nedtriebitscanr(ALLOCATIONS)-nedtriebitscanr(m)); /* Loop more when m is smaller */
+    if(lmax<1) lmax=1;
+    for(l=0; l<lmax; l++)
+    {
+      for(n=0; n<m; n++)
+      {
+        int ridx=rand() % (n+1);
+        start=GetUsCount();
+        nodes[nodekeys[n]]=78;
+        end=GetUsCount();
+        insert+=end-start;
+        start=GetUsCount();
+        it=nodes.find(nodekeys[n]);
+        end=GetUsCount();
+        if(nodes.end()==it) abort();
+        find1+=end-start;
+      }
+      for(n=0; n<m; n++)
+      {
+        start=GetUsCount();
+        it=nodes.find(nodekeys[n]);
+        end=GetUsCount();
+        if(nodes.end()==it) abort();
+        find2+=end-start;
+      }
+      for(it=nodes.begin(); it!=nodes.end();)
+      {
+        start=GetUsCount();
+        ++it;
+        end=GetUsCount();
+        iterate+=end-start;
+      }
+      for(n=0; n<m; n++)
+      {
+        start=GetUsCount();
+        nodes.erase(nodes.find(nodekeys[n]));
+        end=GetUsCount();
+        remove+=end-start;
+      }
+    }
+    ai->inserts[m]=(usCount)((double) insert/l);
+    ai->finds1[m]=(usCount)((double)find1/l);
+    ai->finds2[m]=(usCount)((double)find2/l);
+    ai->removes[m]=(usCount)((double)remove/l);
+    ai->iterates[m]=(usCount)((double)iterate/l);
+    //if(!(m & 127)) printf("At %d = %lu, %lu, %lu, %lu, %lu\n", m, ai->inserts[m], ai->finds1[m], ai->finds2[m], ai->removes[m], ai->iterates[m]);
+  }
+}
+#endif /* __cplusplus */
+
+
+#define ALGORITHMS 6
 int main(void)
 {
-  int n, m;
+  int n, m, algorithmslen=0;
   static AlgorithmInfo algorithms[ALGORITHMS];
 	FILE *oh;
 
-  algorithms[0].name="nedtrie";
-  nedtrie_RunTest(algorithms+0);
-  algorithms[1].name="rbtree";
-   rbtree_RunTest(algorithms+1);
-  algorithms[2].name="hash";
-   hash_RunTest(algorithms+2);
+  if(1)
+  {
+    /* These are the C benchmarks */
+    algorithms[algorithmslen].name="nedtrie";
+    nedtrie_RunTest(algorithms+algorithmslen++);
+    algorithms[algorithmslen].name="rbtree";
+     rbtree_RunTest(algorithms+algorithmslen++);
+    algorithms[algorithmslen].name="hash";
+     hash_RunTest(algorithms+algorithmslen++);
+  }
+#ifdef __cplusplus
+  if(1)
+  {
+    using namespace std;
+    algorithms[algorithmslen].name="trie_map<size_t>";
+    RunTest<nedtries::trie_map<size_t, size_t> >(algorithms+algorithmslen++);
+    algorithms[algorithmslen].name="map<size_t>";
+    RunTest<map<size_t, size_t> >(algorithms+algorithmslen++);
+    algorithms[algorithmslen].name="unordered_map<size_t>";
+    RunTest<unordered_map<size_t, size_t> >(algorithms+algorithmslen++);
+  }
+#endif
 
   oh=fopen(4==sizeof(void *) ? "results32.csv" : "results64.csv", "w");
   assert(oh);
   if(!oh) abort();
-  for(m=0; m<ALGORITHMS; m++)
+  for(m=0; m<algorithmslen; m++)
   {
-    fprintf(oh, "\"Insert (%s)\",\"Find 0-N (%s)\",\"Find N (%s)\",\"Remove (%s)\",\"Iterate (%s)\"%c", algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, m==ALGORITHMS-1 ? '\n' : ',');
+    fprintf(oh, "\"Insert (%s)\",\"Find 0-N (%s)\",\"Find N (%s)\",\"Remove (%s)\",\"Iterate (%s)\"%c", algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, m==algorithmslen-1 ? '\n' : ',');
     algorithms[m].inserts[0]=algorithms[m].finds1[0]=algorithms[m].finds2[0]=algorithms[m].removes[0]=algorithms[m].iterates[0]=1;
   }
   /* Max out the CPU to try to counter SpeedStep */
@@ -212,7 +299,7 @@ int main(void)
   }
 	for(n=0; n<ALLOCATIONS; n++)
 	{
-    for(m=0; m<ALGORITHMS; m++)
+    for(m=0; m<algorithmslen; m++)
     {
       int k, added=0;
       double inserts=0, finds1=0, finds2=0, removes=0, iterates=0;
@@ -232,7 +319,7 @@ int main(void)
         n/(finds2/added),
         n/(removes/added),
         n/(iterates/added),
-        m==ALGORITHMS-1 ? '\n' : ',');
+        m==algorithmslen-1 ? '\n' : ',');
     }
 	}
 	fclose(oh);

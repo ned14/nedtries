@@ -52,7 +52,8 @@ dt + dd {
 	<p>Web site: <a href="http://www.nedprod.com/programs/portable/nedtries/">http://www.nedprod.com/programs/portable/nedtries/</a></p>
 	<hr /></div>
 <p>Enclosed is nedtries, an in-place bitwise binary Fredkin trie algorithm which allows for near 
-constant time insertions, deletions, finds, <strong>closest fit finds</strong> and iteration. On 
+constant time insertions, deletions, finds,
+<span style="text-decoration: underline"> <strong>closest fit finds</strong></span> and iteration. On 
 modern hardware it is approximately 50-100% faster than red-black binary trees, it 
 handily beats even the venerable O(1) hash table for less than 3000 objects and 
 it is barely slower than the hash table for 10000 objects. Past 10000 objects 
@@ -72,24 +73,25 @@ Productions Limited</a>.</p>
 	a bounded environment such as a bootstrapper or a tiny embedded systems 
 	kernel. It is also a lot faster than hash tables for less than a few 
 	thousand items.</li>
+	<li>Unlike either red-black trees or most hash tables, nedtries can store as 
+	many items with identical keys as you like.</li>
 	<li>Its performance is nearly perfectly stable over time and number of 
-	contents N with a worst case complexity of O(M) following an inverse 
-	exponential curve average where 1 &lt;= M &lt;= 8*sizeof(void *). M is a measure 
+	contents N with a worst case complexity of O(M) following a mostly linear 
+	degradation with increasing M average where 1 &lt;= M &lt;= 8*sizeof(void *). M is a measure 
 	of the entropy between differing keys, so where keys are very similar at the 
 	bit level M is 
 	higher than where keys are very dissimilar.</li>
 	<li>Its complexities for find and insert are identical, whereas for deletion 
-	it is more constant. Unlike almost any other algorithm, bitwise binary tries 
+	it is slightly more constant. Unlike almost any other algorithm, bitwise binary tries 
 	have nearly identical real world speeds for ALL its operations rather than 
 	being fast at one thing but slow at the others. In other words, if your code 
-	equally inserts, deletes and finds with no preference for which then
-	<span style="text-decoration: underline">this algorithm will beat all others 
+	equally inserts, deletes and finds with no preference for which then 	<span style="text-decoration: underline">this algorithm will beat all others 
 	in the general purpose situation</span>.</li>
 </ol>
 <p>Its primary disadvantage is that it can only key upon a size_t (i.e. the size 
 of a void *), so it cannot make use of an arbitrarily large key like a hash 
 table can (though of course one could hash the large key into a size_t sized 
-key). It also would prefer the key to be as unique as possible, so if you wish 
+key). It also runs fastest when the key is as unique as possible, so if you wish 
 to replace a red-black tree which has a complex left-right comparison function 
 which cannot be converted into a stable size_t value then you will need to stick 
 with red-black trees. In other words, it is ideal when you are keying on pointer 
@@ -108,7 +110,7 @@ you are building debug, NEDTRIEDEBUG is by default turned on: this causes a
 complete state validation check to be performed after each and every change to 
 the trie which tends to be very good at catching bugs early, but can make debug 
 builds a little slow.</p>
-<p>So what is &quot;an in-place bitwise binary Fredkin trie algorithm&quot; then? 
+<p>SSo what is &quot;an in-place bitwise binary Fredkin trie algorithm&quot; then? 
 Well you ought to start by reading and fully digesting
 <a href="http://en.wikipedia.org/wiki/Trie" target="_blank">the Wikipedia page 
 on Fredkin tries</a> as what comes won&#39;t make much sense otherwise. The 
@@ -140,7 +142,7 @@ usually sufficiently ordered that one can assume it to be so for most
 operations, but if you need to guarantee order then you can bubble sort per MSB 
 bin as bubble sort performs <em>very</em> well on nearly sorted data (as does 
 smooth sort if you have a very large set of data) .</p>
-<p>The enclosed benchmark.cpp will run a scalability test comparing the bitwise 
+<p>TThe enclosed benchmark.cpp will run a scalability test comparing the bitwise 
 binary trie implementation from nedtries, the red-black binary tree 
 implementation from FreeBSD and the O(1) hash table implementation from
 <a href="http://uthash.sourceforge.net/">http://uthash.sourceforge.net/</a> outputting 
@@ -153,7 +155,7 @@ which is the only modern CPU to be so slow. See
 http://gmplib.org/~tege/x86-timing.pdf</a> for x86 and x64 instruction timings.</p>
 <h2><a name="c-usage">B. C Macro Usage:</a></h2>
 <p>Usage via C macros follows the FreeBSD <a href="rbtree.h">rbtree.h</a> 
-format. See the enclosed <a href="nedtries.chm">nedtries.chm</a> for detailed 
+format. See the enclosed <a href="nedtries.chm">nedtries.chm</a>  for detailed 
 API documentation. Here is some sample code:</p>
 <pre>typedef struct foo_s foo_t;
 struct foo_s {
@@ -195,6 +197,19 @@ int main(void)
 <p>There isn&#39;t really much more to it - if you want to throw away the trie, 
 simply NEDTRIE_INIT() its head. As no dynamic memory is involved, nothing is 
 lost.</p>
+<h3>Choosing The Nobble Function</h3>
+<p>I should mention what the nobble function is for: you have three default 
+choices, NEDTRIE_NOBBLEZEROS, NEDTRIE_NOBBLEONES and NEDTRIE_NOBBLEEQUALLY 
+though you can of course also define your own. The nobble function contributes 
+to tree balance by working <em>against</em> bit bias in your keys, so if your 
+keys contain an excess of<em> non-leading </em>zeros then you should 
+preferentially nobble zeros. Equally if your keys contain an excess of ones, 
+then you should preferentially nobble ones and, as you might have guessed, if 
+your bits <em>after the first set bit</em> are completely random (which is rare) 
+then you should nobble equally.</p>
+<p>Sounds complicated? In fact it&#39;s very easy if you simply use trial &amp; error. 
+Start with nobble zeroes which tends to be right in most situations, and then 
+use benchmarking your code to determine the correct setting.</p>
 <h2><a name="changelog0">C. C++ Usage:</a></h2>
 <p>&lt;coming soon&gt;</p>
 <h2><a name="changelog">D. ChangeLog:</a></h2>
