@@ -1364,7 +1364,7 @@ namespace nedtries {
     trie_maptype(const type &v) : trie_value(v) { }
     template<class otype, class oittype> trie_maptype(const trie_maptype<otype, oittype> &o) : trie_value(o.trie_value) { }
 #ifdef HAVE_CPP0XRVALUEREFS
-	  template<class otype, class oittype> trie_maptype(trie_maptype<otype, oittype> &&o) : value(std::move(o.trie_value)) { }
+	  template<class otype, class oittype> trie_maptype(trie_maptype<otype, oittype> &&o) : trie_value(std::move(o.trie_value)) { }
 #endif
     //! Silent const lvalue converter for type
     operator const type &() const { return trie_value; }
@@ -1604,7 +1604,7 @@ namespace nedtries {
     {
       memcpy(&triehead, &o.triehead, sizeof(triehead));
     }
-    template<class okeytype, class otype, class oallocator> triemap &operator=(trie_map<okeytype, otype, oallocator> &&o)
+    template<class okeytype, class otype, class oallocator> trie_map &operator=(trie_map<okeytype, otype, oallocator> &&o)
     {
       *static_cast<stlcontainer *>(this)=std::move(static_cast<stlcontainer &&>(o));
       memcpy(&triehead, &o.triehead, sizeof(triehead));
