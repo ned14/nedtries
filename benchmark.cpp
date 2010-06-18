@@ -67,12 +67,19 @@ static usCount GetUsCount()
 }
 #else
 #include <sys/time.h>
+#include <time.h>
 typedef unsigned long long usCount;
 static usCount GetUsCount()
 {
+#ifdef CLOCK_MONOTONIC
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return ((usCount) ts.tv_sec*1000000000000LL)+ts.tv_nsec*1000LL;
+#else
 	struct timeval tv;
 	gettimeofday(&tv, 0);
 	return ((usCount) tv.tv_sec*1000000000000LL)+tv.tv_usec*1000000LL;
+#endif
 }
 #endif
 
@@ -158,7 +165,7 @@ typedef struct AlgorithmInfo_t
 #define REGION_HEAD(name, type)                   typedef struct type *name
 #define REGION_INIT(treevar)                      (*(treevar)=NULL)
 #define REGION_EMPTY(treevar)                     (!HASH_CNT(link, (*(treevar))))
-#define REGION_GENERATE(proto, treetype, nodetype, link, cmpfunct) static nodetype *HashFind(treetype *head, size_t *key) { nodetype *ret=0; HASH_FIND(link, *head, key, sizeof(*key), ret); return ret; }
+#define REGION_GENERATE(proto, treetype, nodetype, link, cmpfunct) static struct nodetype *HashFind(treetype *head, size_t *key) { struct nodetype *ret=0; HASH_FIND(link, *head, key, sizeof(*key), ret); return ret; }
 #define REGION_INSERT(treetype, treevar, node)    HASH_ADD(link, (*(treevar)), key, sizeof((node)->key), (node))
 #define REGION_REMOVE(treetype, treevar, node)    HASH_DELETE(link, (*(treevar)), (node))
 #define REGION_FIND(treetype, treevar, node)      HashFind(treevar, &(node)->key)
@@ -215,7 +222,7 @@ template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
         end=GetUsCount();
         insert+=end-start;
         start=GetUsCount();
-        it=nodes.find(nodekeys[n]);
+        it=nodes.find(nodekeys[ridx]);
         end=GetUsCount();
         if(nodes.end()==it) abort();
         find1+=end-start;
@@ -295,7 +302,7 @@ int main(void)
   /* Max out the CPU to try to counter SpeedStep */
   {
     usCount start=GetUsCount();
-    while(GetUsCount()-start<1000000000000);
+    while(GetUsCount()-start<1000000000000ULL);
   }
 	for(n=0; n<ALLOCATIONS; n++)
 	{

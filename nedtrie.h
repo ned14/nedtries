@@ -265,23 +265,22 @@ namespace nedtries {
     type *trie_child[2];		      /* my children based on whether they are zero or one. */		
     type *trie_prev, *trie_next;  /* my siblings of identical key to me. */
   };
-  template<class trietype, class type, size_t (*fieldoffset)(void), size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE void triecheckvalidity(trietype *head);
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE void triecheckvalidity(trietype *head);
 
 } /* namespace */
 #endif
 
-#ifdef offsetof
-#define NEDTRIEFIELDOFFSETDECL2(type, field) static size_t offsetfor_##field(void) { return offsetof(type, field); }
+/* GCC recently has started puking if you use operators -> and & in template parameters :( */
+#ifdef __GNUC__
+#define NEDTRIEFIELDOFFSET2(type, field) __builtin_offsetof(type, field)
 #else
-#define NEDTRIEFIELDOFFSETDECL2(type, field) static size_t offsetfor_##field(void) { return ((size_t) &(((type *)0)->field)); }
+#define NEDTRIEFIELDOFFSET2(type, field) ((size_t) &(((type *)0)->field))
 #endif
-#define NEDTRIEFIELDOFFSET2(type, field) offsetfor_##field
-#define NEDTRIEFIELDOFFSETDECL(type, field) NEDTRIEFIELDOFFSETDECL2(struct type, field)
 #define NEDTRIEFIELDOFFSET(type, field) NEDTRIEFIELDOFFSET2(struct type, field)
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t (*fieldoffset)(void), size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE void trieinsert(trietype *RESTRICT head, type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE void trieinsert(trietype *RESTRICT head, type *RESTRICT r)
   {
     type *RESTRICT node, *RESTRICT childnode;
     TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
@@ -289,7 +288,7 @@ namespace nedtries {
     unsigned bitidx;
     int keybitset;
 
-    rlink=(TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset());
+    rlink=(TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
     memset(rlink, 0, sizeof(TrieLink_t<type>));
     bitidx=nedtriebitscanr(rkey);
     assert(bitidx<NEDTRIE_INDEXBINS);
@@ -303,7 +302,7 @@ namespace nedtries {
     keybit=(size_t) 1<<bitidx;
     for(;;node=childnode)
     {
-      nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
       nodekey=keyfunct(node);
       if(nodekey==rkey)
       { /* Insert into ring list */
@@ -311,7 +310,7 @@ namespace nedtries {
         rlink->trie_prev=node;
         rlink->trie_next=nodelink->trie_next;
         nodelink->trie_next=r;
-        if(rlink->trie_next) ((TrieLink_t<type> *RESTRICT)((size_t) rlink->trie_next + fieldoffset()))->trie_prev=r;
+        if(rlink->trie_next) ((TrieLink_t<type> *RESTRICT)((size_t) rlink->trie_next + fieldoffset))->trie_prev=r;
         break;
       }
       keybit>>=1;
@@ -387,23 +386,23 @@ end: \
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t (*fieldoffset)(void), size_t (*keyfunct)(const type *RESTRICT), int (*nobblefunct)(trietype *head)> DEBUGINLINE void trieremove(trietype *RESTRICT head, type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT), int (*nobblefunct)(trietype *head)> DEBUGINLINE void trieremove(trietype *RESTRICT head, type *RESTRICT r)
   {
     type *RESTRICT node, **myaddrinparent=0;
     TrieLink_t<type> *RESTRICT nodelink, *RESTRICT childlink, *RESTRICT rlink;
     unsigned bitidx;
 
-    rlink=(TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset());
+    rlink=(TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
     /* Am I a leaf off the tree? */
     if(rlink->trie_prev)
     { /* Remove from linked list */
       assert(!rlink->trie_parent);
       node=rlink->trie_prev;
-      nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
       nodelink->trie_next=rlink->trie_next;
       if(rlink->trie_next)
       {
-        nodelink=(TrieLink_t<type> *RESTRICT)((size_t) rlink->trie_next + fieldoffset());
+        nodelink=(TrieLink_t<type> *RESTRICT)((size_t) rlink->trie_next + fieldoffset);
         nodelink->trie_prev=node;
       }
       goto functexit;
@@ -422,7 +421,7 @@ namespace nedtries {
     else
     { /* Otherwise I am one of my parent's children */
       node=rlink->trie_parent;
-      nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
       myaddrinparent=(nodelink->trie_child[0]==r) ? &nodelink->trie_child[0] : &nodelink->trie_child[1];
     }
     assert(*myaddrinparent==r);
@@ -431,7 +430,7 @@ namespace nedtries {
     if(rlink->trie_next)
     {
       node=rlink->trie_next;
-      nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
       assert(nodelink->trie_prev==r);
       nodelink->trie_prev=0;
       goto end;
@@ -445,8 +444,8 @@ namespace nedtries {
     {
       type *RESTRICT *RESTRICT childaddrinparent=myaddrinparent, *RESTRICT *RESTRICT newchildaddrinparent;
       int nobbledir=nobblefunct(head);
-      while(*(newchildaddrinparent=&(((TrieLink_t<type> *RESTRICT)((size_t) *childaddrinparent + fieldoffset()))->trie_child[nobbledir]))
-         || *(newchildaddrinparent=&(((TrieLink_t<type> *RESTRICT)((size_t) *childaddrinparent + fieldoffset()))->trie_child[!nobbledir])))
+      while(*(newchildaddrinparent=&(((TrieLink_t<type> *RESTRICT)((size_t) *childaddrinparent + fieldoffset))->trie_child[nobbledir]))
+         || *(newchildaddrinparent=&(((TrieLink_t<type> *RESTRICT)((size_t) *childaddrinparent + fieldoffset))->trie_child[!nobbledir])))
         childaddrinparent=newchildaddrinparent;
       node=*childaddrinparent;
       *childaddrinparent=0;
@@ -454,19 +453,19 @@ namespace nedtries {
   end:
     if(node)
     {
-      nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
       assert(!nodelink->trie_child[0] && !nodelink->trie_child[1]);
       nodelink->trie_parent=rlink->trie_parent;
       nodelink->trie_child[0]=rlink->trie_child[0];
       nodelink->trie_child[1]=rlink->trie_child[1];
       if(nodelink->trie_child[0])
       {
-        childlink=(TrieLink_t<type> *RESTRICT)((size_t) nodelink->trie_child[0] + fieldoffset());
+        childlink=(TrieLink_t<type> *RESTRICT)((size_t) nodelink->trie_child[0] + fieldoffset);
         childlink->trie_parent=node;
       }
       if(nodelink->trie_child[1])
       {
-        childlink=(TrieLink_t<type> *RESTRICT)((size_t) nodelink->trie_child[1] + fieldoffset());
+        childlink=(TrieLink_t<type> *RESTRICT)((size_t) nodelink->trie_child[1] + fieldoffset);
         childlink->trie_parent=node;
       }
     }
@@ -569,7 +568,7 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t (*fieldoffset)(void), size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triefind(const trietype *RESTRICT head, const type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triefind(const trietype *RESTRICT head, const type *RESTRICT r)
   {
     const type *RESTRICT node, *RESTRICT childnode;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
@@ -578,7 +577,7 @@ namespace nedtries {
     int keybitset;
 
     if(!head->count) return 0;
-    rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset());
+    rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
     bitidx=nedtriebitscanr(rkey);
     assert(bitidx<NEDTRIE_INDEXBINS);
     if(!(node=head->triebins[bitidx]))
@@ -587,7 +586,7 @@ namespace nedtries {
     keybit=(size_t) 1<<bitidx;
     for(;;node=childnode)
     {
-      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
       nodekey=keyfunct(node);
       if(nodekey==rkey)
         goto end;
@@ -644,19 +643,19 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t (*fieldoffset)(void), size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE int trieexactfind(const trietype *RESTRICT head, const type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE int trieexactfind(const trietype *RESTRICT head, const type *RESTRICT r)
   {
     const type *RESTRICT node;
     const TrieLink_t<type> *RESTRICT nodelink;
 
     if(!head->count) return 0;
     if(!(node=triefind<trietype, type, fieldoffset, keyfunct>(head, r))) return 0;
-    nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+    nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
     if(nodelink->trie_prev) node=nodelink->trie_prev;
     do
     {
       if(node==r) return 1;
-      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
       node=nodelink->trie_next;
     } while(node);
     return 0;
@@ -689,7 +688,7 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t (*fieldoffset)(void), size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieNfind(const trietype *RESTRICT head, const type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieNfind(const trietype *RESTRICT head, const type *RESTRICT r)
   {
     const type *RESTRICT node=0, *RESTRICT childnode, *RESTRICT ret=0;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
@@ -698,7 +697,7 @@ namespace nedtries {
     int keybitset;
 
     if(!head->count) return 0;
-    rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset());
+    rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
     binbitidx=nedtriebitscanr(rkey);
     assert(binbitidx<NEDTRIE_INDEXBINS);
     do
@@ -715,7 +714,7 @@ namespace nedtries {
       keybit=(size_t) 1<<bitidx;
       for(;;node=childnode)
       {
-        nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+        nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
         nodekey=keyfunct(node);
         if(nodekey>=rkey && nodekey-rkey<retkey)
         {
@@ -737,7 +736,7 @@ namespace nedtries {
       }
     } while(!ret);
   end:
-    nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) ret + fieldoffset());
+    nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) ret + fieldoffset);
     return nodelink->trie_next ? nodelink->trie_next : (type *) ret;
   }
 }
@@ -801,7 +800,7 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t (*fieldoffset)(void), size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieminmax(const trietype *RESTRICT head, unsigned dir)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieminmax(const trietype *RESTRICT head, unsigned dir)
   {
     const type *RESTRICT node=0, *RESTRICT child;
     const TrieLink_t<type> *RESTRICT nodelink;
@@ -816,17 +815,17 @@ namespace nedtries {
     /* He wants max */
     for(bitidx=NEDTRIE_INDEXBINS-1; bitidx<NEDTRIE_INDEXBINS && !(node=head->triebins[bitidx]); bitidx--);
     assert(node);
-    nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+    nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
     while((child=nodelink->trie_child[1] ? nodelink->trie_child[1] : nodelink->trie_child[0]))
     {
       node=child;
-      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
     }
     /* Now go to end leaf */
     while(nodelink->trie_next)
     {
       node=nodelink->trie_next;
-      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
     }
     return (type *) node;
   }
@@ -869,13 +868,13 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t (*fieldoffset)(void), size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieprev(const trietype *RESTRICT head, const type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieprev(const trietype *RESTRICT head, const type *RESTRICT r)
   {
     const type *RESTRICT node=0, *RESTRICT child;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
     unsigned bitidx;
 
-    rlink=(TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset());
+    rlink=(TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
     /* Am I a leaf off the tree? */
     if(rlink->trie_prev)
     {
@@ -886,7 +885,7 @@ namespace nedtries {
     while(((size_t) rlink->trie_parent & 3)!=3)
     {
       node=rlink->trie_parent;
-      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
       /* If I was on child[1] and there is a child[0], go to bottom of child[0] */
       if(nodelink->trie_child[1]==r && nodelink->trie_child[0])
       {
@@ -902,19 +901,19 @@ namespace nedtries {
     for(bitidx--; bitidx<NEDTRIE_INDEXBINS && !(node=head->triebins[bitidx]); bitidx--);
     if(bitidx>=NEDTRIE_INDEXBINS) return 0;
   returnbottomofchild:
-    nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+    nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
     /* Follow child[1] preferentially downwards */
     while((child=nodelink->trie_child[1] ? nodelink->trie_child[1] : nodelink->trie_child[0]))
     {
       node=child;
-      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
     }
   returnendleaf:
     /* Now go to end leaf */
     while(nodelink->trie_next)
     {
       node=nodelink->trie_next;
-      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
     }
     return (type *) node;
   }
@@ -975,13 +974,13 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t (*fieldoffset)(void), size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trienext(const trietype *RESTRICT head, const type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trienext(const trietype *RESTRICT head, const type *RESTRICT r)
   {
     const type *RESTRICT node;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
     unsigned bitidx;
 
-    rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset());
+    rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
     /* Am I a leaf off the tree? */
     if(rlink->trie_next)
       return rlink->trie_next;
@@ -989,12 +988,12 @@ namespace nedtries {
     while(!rlink->trie_parent)
     { 
       r=rlink->trie_prev;
-      rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset());
+      rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
     }
     /* Follow my children, preferring child[0] */
     if((node=rlink->trie_child[0] ? rlink->trie_child[0] : rlink->trie_child[1]))
     {
-      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
       assert(nodelink->trie_parent==r);
       return (type *) node;
     }
@@ -1002,7 +1001,7 @@ namespace nedtries {
     while(((size_t) rlink->trie_parent & 3)!=3)
     {
       node=rlink->trie_parent;
-      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
       if(nodelink->trie_child[0]==r && nodelink->trie_child[1])
       {
         return nodelink->trie_child[1];
@@ -1070,7 +1069,6 @@ namespace nedtries {
 \brief Substitutes a set of nedtrie implementation function definitions specialised according to type.
 */
 #define NEDTRIE_GENERATE(proto, name, type, field, keyfunct, nobblefunct) \
-  NEDTRIEFIELDOFFSETDECL    (type, field) \
   NEDTRIE_GENERATE_NOBBLES  (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_INSERT   (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_REMOVE   (proto, name, type, field, keyfunct, nobblefunct) \
@@ -1158,7 +1156,7 @@ namespace nedtries {
     size_t count, smallestkey, largestkey, tops, lefts, rights, leafs;
   } TrieValidityState;
 
-  template<class trietype, class type, size_t (*fieldoffset)(void), size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE
            void triecheckvaliditybranch(trietype *head, type *RESTRICT node, unsigned bitidx, TrieValidityState &state)
   {
     type *RESTRICT child;
@@ -1167,26 +1165,26 @@ namespace nedtries {
 
     if(nodekey<state.smallestkey) state.smallestkey=nodekey;
     if(nodekey>state.largestkey) state.largestkey=nodekey;
-    nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+    nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
     assert(nodelink->trie_parent);
     child=nodelink->trie_parent;
-    childlink=(TrieLink_t<type> *RESTRICT)((size_t) child + fieldoffset());
+    childlink=(TrieLink_t<type> *RESTRICT)((size_t) child + fieldoffset);
     assert(childlink->trie_child[0]==node || childlink->trie_child[1]==node);
     assert(node==childlink->trie_child[!!(nodekey & ((size_t) 1<<bitidx))]);
     assert(!nodelink->trie_prev);
     while((child=nodelink->trie_next))
     {
       state.leafs++;
-      childlink=(TrieLink_t<type> *RESTRICT)((size_t) child + fieldoffset());
+      childlink=(TrieLink_t<type> *RESTRICT)((size_t) child + fieldoffset);
       assert(!childlink->trie_parent);
       assert(!childlink->trie_child[0]);
       assert(!childlink->trie_child[1]);
       assert(childlink->trie_prev);
-      assert(!childlink->trie_next || child==((TrieLink_t<type> *RESTRICT)((size_t) childlink->trie_next + fieldoffset()))->trie_prev);
+      assert(!childlink->trie_next || child==((TrieLink_t<type> *RESTRICT)((size_t) childlink->trie_next + fieldoffset))->trie_prev);
       nodelink=childlink;
       state.count++;
     }
-    nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+    nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
     state.count++;
     if(nodelink->trie_child[0])
     {
@@ -1200,7 +1198,7 @@ namespace nedtries {
     }
   }
 #endif
-  template<class trietype, class type, size_t (*fieldoffset)(void), size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE void triecheckvalidity(trietype *head)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE void triecheckvalidity(trietype *head)
   {
 #ifndef NDEBUG
     type *RESTRICT node, *RESTRICT child;
@@ -1213,7 +1211,7 @@ namespace nedtries {
       {
         size_t nodekey=keyfunct(node);
         state.tops++;
-        nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+        nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
         bitidx=(unsigned)(((size_t) nodelink->trie_parent)>>2);
         assert(bitidx==n);
         assert(head->triebins[bitidx]==node);
@@ -1222,16 +1220,16 @@ namespace nedtries {
         while((child=nodelink->trie_next))
         {
           state.leafs++;
-          childlink=(TrieLink_t<type> *RESTRICT)((size_t) child + fieldoffset());
+          childlink=(TrieLink_t<type> *RESTRICT)((size_t) child + fieldoffset);
           assert(!childlink->trie_parent);
           assert(!childlink->trie_child[0]);
           assert(!childlink->trie_child[1]);
           assert(childlink->trie_prev);
-          assert(!childlink->trie_next || child==((TrieLink_t<type> *RESTRICT)((size_t) childlink->trie_next + fieldoffset()))->trie_prev);
+          assert(!childlink->trie_next || child==((TrieLink_t<type> *RESTRICT)((size_t) childlink->trie_next + fieldoffset))->trie_prev);
           nodelink=childlink;
           state.count++;
         }
-        nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset());
+        nodelink=(TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
         state.count++;
         if(nodelink->trie_child[0])
         {
@@ -1339,6 +1337,7 @@ namespace nedtries {
   } // namspace
   template<class type> NEDTRIE_HEAD2(trie_map_head, type);
   template<class type, class iteratortype> struct trie_maptype;
+  template<class type, class iteratortype> size_t trie_maptype_keyfunct(const trie_maptype<type, iteratortype> *);
   template<class keytype, class type,
     class allocator=std::allocator<trie_maptype<std::pair<keytype, type>, std::list<size_t>::iterator> >,
     template<class> class nobblepolicy=nedpolicy::nobblezeros, 
@@ -1354,10 +1353,13 @@ namespace nedtries {
   {
   private:
     template<class keytype, class type_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_map;
+    template<class type_, class iteratortype_> friend size_t trie_maptype_keyfunct(const trie_maptype<type_, iteratortype_> *);
     typedef type trie_value_type;
+    typedef iteratortype trie_iterator_type;
     type trie_value;
     iteratortype trie_iterator;
     TrieLink_t<type> trie_link;
+    static const size_t trie_link_offset=sizeof(type)+sizeof(iteratortype); // GCC won't accept offsetof() as a template argument sadly :(
   public:
     trie_maptype(const type &v) : trie_value(v) { }
     template<class otype, class oittype> trie_maptype(const trie_maptype<otype, oittype> &o) : trie_value(o.trie_value) { }
@@ -1367,6 +1369,10 @@ namespace nedtries {
     //! Silent const lvalue converter for type
     operator const type &() const { return trie_value; }
   };
+  template<class type, class iteratortype> size_t trie_maptype_keyfunct(const trie_maptype<type, iteratortype> *v)
+  {
+    return v->trie_value.first;
+  }
 
   /*! \class trie_map
   \ingroup C++
@@ -1409,8 +1415,7 @@ namespace nedtries {
   {
     typedef nobblepolicy<trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> > nobblepolicytype;
     typedef typename stlcontainer::value_type mapvaluetype;
-  protected:
-    NEDTRIEFIELDOFFSETDECL2(mapvaluetype, trie_link);
+    static const size_t trie_fieldoffset=mapvaluetype::trie_link_offset;
   public:
     typedef typename stlcontainer::allocator_type allocator_type;
     typedef typename stlcontainer::const_iterator const_iterator;
@@ -1428,9 +1433,20 @@ namespace nedtries {
     typedef typename stlcontainer::value_type::trie_value_type value_type;
   private:
     trie_map_head<mapvaluetype> triehead;
-    static size_t triehead_keyfunct(const mapvaluetype *v)
+    static const_iterator &to_iterator(const typename mapvaluetype::trie_iterator_type &it)
     {
-      return v->trie_value.first;
+      void *_it=(void *) &it;
+      return *(const_iterator *)_it;
+    }
+    static iterator &to_iterator(typename mapvaluetype::trie_iterator_type &it)
+    {
+      void *_it=(void *) &it;
+      return *(iterator *)_it;
+    }
+    static typename mapvaluetype::trie_iterator_type &from_iterator(iterator &it)
+    {
+      void *_it=(void *) &it;
+      return *(typename mapvaluetype::trie_iterator_type *)_it;
     }
     // Wipes and resets the nedtrie index
     void triehead_reindex()
@@ -1438,7 +1454,7 @@ namespace nedtries {
       NEDTRIE_INIT(&triehead);
       for(iterator it=begin(); it!=end(); ++it)
       {
-        trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, NEDTRIEFIELDOFFSET2(mapvaluetype, trie_link), triehead_keyfunct>(&triehead, &(*it));
+        trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, &(*it));
         it->trie_iterator=it;
       }
     }
@@ -1447,21 +1463,21 @@ namespace nedtries {
       char buffer[sizeof(mapvaluetype)];
       mapvaluetype *RESTRICT r=(mapvaluetype *RESTRICT) buffer;
       r->trie_value.first=key;
-      return triefind<trie_map_head<mapvaluetype>, mapvaluetype, NEDTRIEFIELDOFFSET2(mapvaluetype, trie_link), triehead_keyfunct>(&triehead, r);
+      return triefind<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, r);
     }
     iterator triehead_insert(const value_type &val)
     {
       iterator it=stlcontainer::insert(end(), std::move(val));
-      *(iterator *)(&it->trie_iterator)=it;
-      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, NEDTRIEFIELDOFFSET2(mapvaluetype, trie_link), triehead_keyfunct>(&triehead, &(*it));
+      it->trie_iterator=from_iterator(it);
+      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, &(*it));
       return it;
     }
 #ifdef HAVE_CPP0XRVALUEREFS
     iterator triehead_insert(value_type &&val)
     {
       iterator it=stlcontainer::insert(end(), std::move(val));
-      *(iterator *)(&it->trie_iterator)=it;
-      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, NEDTRIEFIELDOFFSET2(mapvaluetype, trie_link), triehead_keyfunct>(&triehead, &(*it));
+      it->trie_iterator=from_iterator(it);
+      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, &(*it));
       return it;
     }
 #endif
@@ -1487,7 +1503,15 @@ namespace nedtries {
     //! Removes the item specified by \em it from the container
     iterator erase(iterator it)
     {
-      trieremove<trie_map_head<mapvaluetype>, mapvaluetype, NEDTRIEFIELDOFFSET2(mapvaluetype, trie_link), triehead_keyfunct, nobblepolicytype::trie_nobblefunction<trie_map_head<mapvaluetype> > >(&triehead, &(*it));
+      //int (*nobblefunct)(trietype *head)
+      trieremove<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct,
+        // Need to give MSVC a little bit of help
+#ifdef _MSC_VER
+        nobblepolicytype::trie_nobblefunction<trie_map_head<mapvaluetype> >
+#else
+        nobblepolicytype::trie_nobblefunction
+#endif
+      >(&triehead, &(*it));
       return stlcontainer::erase(it);
     }
     //! Removes the items between \em first and \em last from the container
@@ -1495,17 +1519,23 @@ namespace nedtries {
     {
       for(iterator it=first; it!=last; ++it)
       {
-        trieremove<trie_map_head<mapvaluetype>, mapvaluetype, NEDTRIEFIELDOFFSET2(mapvaluetype, trie_link), triehead_keyfunct, nobblepolicytype::trie_nobblefunction<trie_map_head<mapvaluetype> > >(&triehead, &(*it));
+        trieremove<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct,
+#ifdef _MSC_VER
+          nobblepolicytype::trie_nobblefunction<trie_map_head<mapvaluetype> >
+#else
+          nobblepolicytype::trie_nobblefunction
+#endif
+        >(&triehead, &(*it));
       }
       return stlcontainer::erase(first, last);
     }
     //! Finds the item with key \em key
-    iterator find(const key_type &key) { const_iterator it=static_cast<const trie_map *>(this)->find(key); return *reinterpret_cast<iterator *>(&it); }
+    iterator find(const key_type &key) { const_iterator it=static_cast<const trie_map *>(this)->find(key); void *_it=(void *) &it; return *(iterator *)_it; }
     //! Finds the item with key \em key
     const_iterator find(const key_type &key) const
     {
       const mapvaluetype *r=triehead_find(key);
-      return !r ? end() : *(iterator *)(&r->trie_iterator);
+      return !r ? end() : to_iterator(r->trie_iterator);
     }
     using stlcontainer::get_allocator;
     //! Inserts the item \em val
@@ -1515,7 +1545,7 @@ namespace nedtries {
       if(r)
       {
         r->trie_value=std::move(val.trie_value);
-        return std::make_pair(r->trie_iterator, false);
+        return std::make_pair(to_iterator(r->trie_iterator), false);
       }
       return std::make_pair(triehead_insert(std::move(val)), true);
     }
@@ -1523,8 +1553,8 @@ namespace nedtries {
     iterator insert(iterator at, const value_type &val)
     {
       iterator it=stlcontainer::insert(at, val);
-      it->trie_iterator=it;
-      trieinsert<trie_map_head, mapvaluetype, NEDTRIEFIELDOFFSET2(mapvaluetype, trie_link), triehead_keyfunct>(&triehead, &(*it));
+      it->trie_iterator=from_iterator(it);
+      trieinsert<trie_map_head, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, &(*it));
       return it;
     }
     //! Inserts the items between \em first and \em last
@@ -1534,8 +1564,8 @@ namespace nedtries {
       stlcontainer::insert(first, last);
       for(; it!=end(); ++it)
       {
-        it->trie_iterator=it;
-        trieinsert<trie_map_head, mapvaluetype, NEDTRIEFIELDOFFSET2(mapvaluetype, trie_link), triehead_keyfunct>(&triehead, &(*it));
+        it->trie_iterator=from_iterator(it);
+        trieinsert<trie_map_head, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, &(*it));
       }
     }
     //key_compare key_comp() const;
@@ -1553,7 +1583,7 @@ namespace nedtries {
     mapped_type &operator[](const keytype &key)
     {
       mapvaluetype *r=const_cast<mapvaluetype *>(triehead_find(key));
-      iterator it=r ? *(iterator *)(&r->trie_iterator) : triehead_insert(std::move(value_type(key, std::move(type()))));
+      iterator it=r ? to_iterator(r->trie_iterator) : triehead_insert(std::move(value_type(key, std::move(type()))));
       return it->trie_value.second;
     }
 

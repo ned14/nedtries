@@ -38,8 +38,8 @@ typedef struct BENCHMARK_PREFIX(region_node2_s)
 } BENCHMARK_PREFIX(region_node2_t);
 static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
 {
-  static BENCHMARK_PREFIX(region_node2_s) nodes[ALLOCATIONS];
-  BENCHMARK_PREFIX(region_node_s) *r;
+  static BENCHMARK_PREFIX(region_node2_t) nodes[ALLOCATIONS];
+  BENCHMARK_PREFIX(region_node_t) *r;
   int l, n, m;
   usCount start, end;
   printf("Running scalability test for %s\n", ai->name);
@@ -96,5 +96,6 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
     ai->finds2[m]=(usCount)((double)find2/l);
     ai->removes[m]=(usCount)((double)remove/l);
     ai->iterates[m]=(usCount)((double)iterate/l);
+    if(!(m & 127)) printf("At %d = %llu, %llu, %llu, %llu, %llu\n", m, ai->inserts[m], ai->finds1[m], ai->finds2[m], ai->removes[m], ai->iterates[m]);
   }
 }
