@@ -47,7 +47,7 @@ dt + dd {
 <body>
 
 <div style="text-align: center">
-	<h1 style="text-decoration: underline">nedtries v1.00 (17th June 2010)</h1>
+	<h1 style="text-decoration: underline">nedtries v1.00 (18th June 2010)</h1>
 	<h2 style="text-decoration: none;">by Niall Douglas</h2>
 	<p>Web site: <a href="http://www.nedprod.com/programs/portable/nedtries/">http://www.nedprod.com/programs/portable/nedtries/</a></p>
 	<hr /></div>
@@ -99,6 +99,8 @@ sized keys where each item has a definitive non-changing key.</p>
 <p>In short, <strong>if 
 you are not already using bitwise tries then you probably ought to be!</strong> 
 Read on for how to add them to your software.</p>
+<div><center>
+<img alt="Bitwise Trees Scaling" height="25%" src="images/BitwiseTreesScaling.png" width="25%" /><img alt="Red Black Trees Scaling" height="25%" src="images/RedBlackTreesScaling.png" width="25%" /><img alt="Hash Table Scaling" height="25%" src="images/HashTableScaling.png" width="25%" /></center></div>
 <h2><a name="implementation">A. Implementation:</a></h2>
 <p>The source makes use of C macros on C and C++ templates on C++ - therefore, 
 unlike typical C-macro-based algorithms it is easy to debug and in fact, the improved 
@@ -110,7 +112,7 @@ you are building debug, NEDTRIEDEBUG is by default turned on: this causes a
 complete state validation check to be performed after each and every change to 
 the trie which tends to be very good at catching bugs early, but can make debug 
 builds a little slow.</p>
-<p>SSo what is &quot;an in-place bitwise binary Fredkin trie algorithm&quot; then? 
+<p>So what is &quot;an in-place bitwise binary Fredkin trie algorithm&quot; then? 
 Well you ought to start by reading and fully digesting
 <a href="http://en.wikipedia.org/wiki/Trie" target="_blank">the Wikipedia page 
 on Fredkin tries</a> as what comes won&#39;t make much sense otherwise. The 
@@ -142,17 +144,24 @@ usually sufficiently ordered that one can assume it to be so for most
 operations, but if you need to guarantee order then you can bubble sort per MSB 
 bin as bubble sort performs <em>very</em> well on nearly sorted data (as does 
 smooth sort if you have a very large set of data) .</p>
-<p>TThe enclosed benchmark.cpp will run a scalability test comparing the bitwise 
-binary trie implementation from nedtries, the red-black binary tree 
+<p>The enclosed benchmark.cpp will run a series of scalability tests comparing the bitwise 
+binary trie implementation from nedtries with others outputting its results in 
+CSV format:</p>
+<ul>
+	<li>If compiled as C not C++, the C macro version of nedtries is compared to the red-black binary tree 
 implementation from FreeBSD and the O(1) hash table implementation from
-<a href="http://uthash.sourceforge.net/">http://uthash.sourceforge.net/</a> outputting 
-its results in CSV format. You will also find enclosed a set of precomputed 
+	<a href="http://uthash.sourceforge.net/">http://uthash.sourceforge.net/</a>.</li>
+	<li>If compiled as C++, the C++ template version of nedtries is compared to 
+	all of the C tests above as well as the STL associative container classes 
+	std::map&lt;&gt; and std::unordered_map&lt;&gt;. NOTE THAT YOU NEED A TR1 SUPPORTING 
+	COMPILER FOR std::unordered_map&lt;&gt; SUPPORT!</li>
+</ul>
+<p>You will also find enclosed a set of precomputed 
 Microsoft Excel spreadsheets which were generated on a 2.67Ghz Intel Core 2 Quad 
 Windows 7 x64 machine. They should be representative of performance on modern 
 hardware - though note that the Intel Atom has a 17 cycle nedtriebitscanr() 
 which is the only modern CPU to be so slow. See
-<a href="http://gmplib.org/~tege/x86-timing.pdf">
-http://gmplib.org/~tege/x86-timing.pdf</a> for x86 and x64 instruction timings.</p>
+<a href="http://gmplib.org/~tege/x86-timing.pdf">http://gmplib.org/~tege/x86-timing.pdf</a> for x86 and x64 instruction timings.</p>
 <h2><a name="c-usage">B. C Macro Usage:</a></h2>
 <p>Usage via C macros follows the FreeBSD <a href="rbtree.h">rbtree.h</a> 
 format. See the enclosed <a href="nedtries.chm">nedtries.chm</a>  for detailed 
@@ -211,11 +220,51 @@ then you should nobble equally.</p>
 Start with nobble zeroes which tends to be right in most situations, and then 
 use benchmarking your code to determine the correct setting.</p>
 <h2><a name="changelog0">C. C++ Usage:</a></h2>
-<p>&lt;coming soon&gt;</p>
+<p>C++ usage is even easier than the C macro usage thanks to nedtries::trie_map&lt;&gt; 
+which is API compatible with the std::map&lt;&gt;, std::multimap&lt;&gt; and std::unordered_map&lt;&gt; 
+STL associative containers. trie_map&lt;&gt; 
+makes full use of rvalue construction if either you are running on C++0x 
+according to the value of __cplusplus, or have 
+defined HAVE_CPP0XRVALUEREFS. In the general case, simply drop trie_map&lt;&gt; in where 
+your STL associative container used to be and enjoy the speed benefits!</p>
+<p>Note that insertion and deletion speed in <strong>any</strong> STL container 
+is heavily bound by the speed of your memory allocator. You may wish to consider 
+employing
+<a href="http://www.nedprod.com/programs/portables/nedmalloc/" target="_blank">
+nedmalloc</a> which can deliver some unholy speed benefits if you run it as 
+root, otherwise it will need some small source changes to employ its advanced v2 
+malloc API.</p>
+<p>In case you are not familiar with STL associative containers, they are very 
+simple e.g.:</p>
+<pre>nedtries::trie_map&lt;size_t, Foo&gt; foomap;
+foomap[5]=Foo();
+foomap.erase(foomap.find(5));</pre>
+<p>You can of course iterate through them and do all the normal things you can 
+do with any STL container.</p>
+<h3>The trie_map&lt;&gt; Implementation</h3>
+<p>trie_map&lt;&gt; is actually a STL container <em>wrapper</em> rather than a proper STL 
+container in its own right i.e. it subclasses an existing STL container passing 
+through most of its API, but selectively overrides certain members. Its default 
+parameters point at std::list&lt;&gt; which is its most likely usage model for most 
+people.</p>
+<p>The advantages are mainly that it is quick to implement and can be 
+theoretically applied to any arbitrary STL container, thus taking advantage of 
+that STL container&#39;s optimisations and customisations. The big disadvantage is 
+that it is hacky, dirty and prone to getting bugs into it, and if you look at 
+the source you&#39;ll see what I mean. There is after all a number of places where I 
+am doing a number of very illegal things in C++ which just happen to usually 
+work.</p>
+<p>The chances are that this implementation will be good enough for most people. 
+If however you might like to sponsor the development of a full bitwise trie STL 
+associative container for submission to
+<a href="http://www.boost.org/" target="_blank">the Boost C++ peer reviewed 
+libraries</a> (and thereafter into the standard C++ language itself), I would be 
+very pleased to oblige. <a href="http://www.nedproductions.biz/" target="_blank">
+Please contact ned Productions Consulting Ltd. for further details</a>.</p>
 <h2><a name="changelog">D. ChangeLog:</a></h2>
-<h3>v1.00 beta 1 (17th June 2010):</h3>
+<h3>v1.00 beta 1 (18th June 2010):</h3>
 <ul>
-	<li><span class="gitcommit">[master 89f1806]</span> First release.</li>
+	<li><span class="gitcommit">[master xxxxxxx]</span> First release.</li>
 </ul>
 
 </body>
