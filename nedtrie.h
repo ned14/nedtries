@@ -1142,7 +1142,7 @@ namespace nedtries {
 	     (x) != NULL;                             \
 	     (x) = NEDTRIE_PREV(name, head, x))
 
-/*! \defd NEDTRIE_HASNODEHEADER
+/*! \def NEDTRIE_HASNODEHEADER
 \brief Returns true if this item's node header is active. Useful as a quick check for whether a node is in some trie.
 */
 #define NEDTRIE_HASNODEHEADER(treevar, node, link)  ((node)->link.trie_parent || (node)->link.trie_prev)
