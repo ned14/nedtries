@@ -46,7 +46,11 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
   printf("sizeof(REGION_ENTRY)=%d\n", (int) sizeof(nodes[0].node.link));
   init_gen_rand(1234);
   for(n=0; n<ALLOCATIONS; n++)
+  {
     nodes[n].node.key=gen_rand32();
+    for(m=0; m<n; m++)
+      if(nodes[n].node.key==nodes[m].node.key) { nodes[n].node.key=gen_rand32(); m=-1; }
+  }
   REGION_INIT(&BENCHMARK_PREFIX(regiontree));
   for(m=0; m<ALLOCATIONS; m++)
   {

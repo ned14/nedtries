@@ -214,7 +214,11 @@ template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
   printf("Running scalability test for %s\n", ai->name);
   init_gen_rand(1234);
   for(n=0; n<ALLOCATIONS; n++)
+  {
     nodekeys[n]=gen_rand32();
+    for(m=0; m<n; m++)
+      if(nodekeys[n]==nodekeys[m]) { nodekeys[n]=gen_rand32(); m=-1; }
+  }
   for(m=0; m<ALLOCATIONS; m++)
   {
     usCount insert=0, find1=0, find2=0, remove=0, iterate=0;
@@ -321,19 +325,19 @@ int main(void)
       for(k=n-AVERAGE/2; k<=n+AVERAGE/2; k++)
       {
         if(k<0 || k>=ALLOCATIONS) continue;
-        inserts+=algorithms[m].inserts[k]/1000000000000.0;
-        finds1+=algorithms[m].finds1[k]/1000000000000.0;
-        finds2+=algorithms[m].finds2[k]/1000000000000.0;
-        removes+=algorithms[m].removes[k]/1000000000000.0;
-        iterates+=algorithms[m].iterates[k]/1000000000000.0;
+        inserts+=pow(algorithms[m].inserts[k]/1000000000000.0, 1.0/3);
+        finds1+=pow(algorithms[m].finds1[k]/1000000000000.0, 1.0/3);
+        finds2+=pow(algorithms[m].finds2[k]/1000000000000.0, 1.0/3);
+        removes+=pow(algorithms[m].removes[k]/1000000000000.0, 1.0/3);
+        iterates+=pow(algorithms[m].iterates[k]/1000000000000.0, 1.0/3);
         added++;
       }
       fprintf(oh, "%lf,%lf,%lf,%lf,%lf%c",
-        n/(inserts/added),
-        n/(finds1/added),
-        n/(finds2/added),
-        n/(removes/added),
-        n/(iterates/added),
+        n/(pow(inserts/added, 3)),
+        n/(pow(finds1/added, 3)),
+        n/(pow(finds2/added, 3)),
+        n/(pow(removes/added, 3)),
+        n/(pow(iterates/added, 3)),
         m==algorithmslen-1 ? '\n' : ',');
     }
 	}
