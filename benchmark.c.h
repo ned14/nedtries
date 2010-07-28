@@ -44,9 +44,9 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
   usCount start, end;
   printf("Running scalability test for %s\n", ai->name);
   printf("sizeof(REGION_ENTRY)=%d\n", (int) sizeof(nodes[0].node.link));
-  srand(1);
+  init_gen_rand(1234);
   for(n=0; n<ALLOCATIONS; n++)
-    nodes[n].node.key=((size_t) rand()<<48)^((size_t) rand()<<32)^((size_t) rand()<<16)^((size_t) rand()<<0);
+    nodes[n].node.key=gen_rand32();
   REGION_INIT(&BENCHMARK_PREFIX(regiontree));
   for(m=0; m<ALLOCATIONS; m++)
   {
@@ -57,7 +57,7 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
     {
       for(n=0; n<m; n++)
       {
-        int ridx=rand() % (n+1);
+        int ridx=gen_rand32() % (n+1);
         start=GetUsCount();
         REGION_INSERT(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+n)->node);
         end=GetUsCount();
@@ -96,6 +96,6 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
     ai->finds2[m]=(usCount)((double)find2/l);
     ai->removes[m]=(usCount)((double)remove/l);
     ai->iterates[m]=(usCount)((double)iterate/l);
-    if(!(m & 127)) printf("At %d = %llu, %llu, %llu, %llu, %llu\n", m, ai->inserts[m], ai->finds1[m], ai->finds2[m], ai->removes[m], ai->iterates[m]);
+    /*if(!(m & 127)) printf("At %d = %llu, %llu, %llu, %llu, %llu\n", m, ai->inserts[m], ai->finds1[m], ai->finds2[m], ai->removes[m], ai->iterates[m]);*/
   }
 }

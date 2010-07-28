@@ -29,6 +29,7 @@ DEALINGS IN THE SOFTWARE.
 #define _CRT_SECURE_NO_WARNINGS
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 #define ALLOCATIONS 4096
@@ -82,6 +83,13 @@ static usCount GetUsCount()
 #endif
 }
 #endif
+
+/* Include the Mersenne twister */
+#if defined(_M_X64) || defined(__x86_64__) || (defined(_M_IX86) && _M_IX86_FP>=2) || (defined(__i386__) && defined(__SSE2__))
+#define HAVE_SSE2 1
+#endif
+#include "SFMT.c"
+
 
 typedef struct AlgorithmInfo_t
 {
@@ -204,9 +212,9 @@ template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
   int l, n, m;
   usCount start, end;
   printf("Running scalability test for %s\n", ai->name);
-  srand(1);
+  init_gen_rand(1234);
   for(n=0; n<ALLOCATIONS; n++)
-    nodekeys[n]=((size_t) rand()<<48)^((size_t) rand()<<32)^((size_t) rand()<<16)^((size_t) rand()<<0);
+    nodekeys[n]=gen_rand32();
   for(m=0; m<ALLOCATIONS; m++)
   {
     usCount insert=0, find1=0, find2=0, remove=0, iterate=0;
@@ -216,7 +224,7 @@ template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
     {
       for(n=0; n<m; n++)
       {
-        int ridx=rand() % (n+1);
+        int ridx=gen_rand32() % (n+1);
         start=GetUsCount();
         nodes[nodekeys[n]]=78;
         end=GetUsCount();
