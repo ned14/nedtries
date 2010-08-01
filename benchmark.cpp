@@ -30,6 +30,7 @@ DEALINGS IN THE SOFTWARE.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 #include <assert.h>
 
 #define ALLOCATIONS 4096
@@ -88,6 +89,7 @@ static usCount GetUsCount()
 #if defined(_M_X64) || defined(__x86_64__) || (defined(_M_IX86) && _M_IX86_FP>=2) || (defined(__i386__) && defined(__SSE2__))
 #define HAVE_SSE2 1
 #endif
+#define MEXP 19937
 #include "SFMT.c"
 
 
@@ -278,7 +280,8 @@ int main(void)
 {
   int n, m, algorithmslen=0;
   static AlgorithmInfo algorithms[ALGORITHMS];
-	FILE *oh;
+  FILE *oh;
+  char buffer[256];
 
   if(1)
   {
@@ -303,7 +306,14 @@ int main(void)
   }
 #endif
 
-  oh=fopen(4==sizeof(void *) ? "results32.csv" : "results64.csv", "w");
+  sprintf(buffer, "results%u%s.csv",
+    (unsigned)(8*sizeof(void *)),
+#ifdef WIN32
+    "_win32");
+#else
+    "_posix");
+#endif
+  oh=fopen(buffer, "w");
   assert(oh);
   if(!oh) abort();
   for(m=0; m<algorithmslen; m++)
