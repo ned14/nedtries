@@ -74,9 +74,9 @@ typedef unsigned long long usCount;
 static usCount GetUsCount()
 {
 #ifdef CLOCK_MONOTONIC
-  struct timespec ts;
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  return ((usCount) ts.tv_sec*1000000000000LL)+ts.tv_nsec*1000LL;
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ((usCount) ts.tv_sec*1000000000000LL)+ts.tv_nsec*1000LL;
 #else
 	struct timeval tv;
 	gettimeofday(&tv, 0);
@@ -84,6 +84,7 @@ static usCount GetUsCount()
 #endif
 }
 #endif
+static usCount usCountOverhead;
 
 /* Include the Mersenne twister */
 #if defined(_M_X64) || defined(__x86_64__) || (defined(_M_IX86) && _M_IX86_FP>=2) || (defined(__i386__) && defined(__SSE2__))
@@ -234,12 +235,12 @@ template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
         start=GetUsCount();
         nodes[nodekeys[n]]=78;
         end=GetUsCount();
-        insert+=end-start;
+        insert+=end-start-usCountOverhead;
         start=GetUsCount();
         it=nodes.find(nodekeys[ridx]);
         end=GetUsCount();
         if(nodes.end()==it) abort();
-        find1+=end-start;
+        find1+=end-start-usCountOverhead;
       }
       for(n=0; n<m; n++)
       {
@@ -247,21 +248,21 @@ template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
         it=nodes.find(nodekeys[n]);
         end=GetUsCount();
         if(nodes.end()==it) abort();
-        find2+=end-start;
+        find2+=end-start-usCountOverhead;
       }
       for(it=nodes.begin(); it!=nodes.end();)
       {
         start=GetUsCount();
         ++it;
         end=GetUsCount();
-        iterate+=end-start;
+        iterate+=end-start-usCountOverhead;
       }
       for(n=0; n<m; n++)
       {
         start=GetUsCount();
         nodes.erase(nodes.find(nodekeys[n]));
         end=GetUsCount();
-        remove+=end-start;
+        remove+=end-start-usCountOverhead;
       }
     }
     ai->inserts[m]=(usCount)((double) insert/l);
@@ -283,6 +284,19 @@ int main(void)
   FILE *oh;
   char buffer[256];
 
+  {
+    usCount start, end, total=0;
+    start=GetUsCount();
+    while(GetUsCount()-start<3000000000000ULL);
+    start=GetUsCount();
+    for(n=0; n<1000000; n++)
+    {
+      total+=GetUsCount();
+    }
+    end=GetUsCount();
+    usCountOverhead=(end-start)/n;
+  }
+  printf("GetUsCount() overhead is %lu\n", (unsigned long) usCountOverhead);
   if(1)
   {
     /* These are the C benchmarks */
@@ -326,8 +340,8 @@ int main(void)
     usCount start=GetUsCount();
     while(GetUsCount()-start<1000000000000ULL);
   }
-	for(n=0; n<ALLOCATIONS; n++)
-	{
+  for(n=0; n<ALLOCATIONS; n++)
+  {
     for(m=0; m<algorithmslen; m++)
     {
       int k, added=0;
@@ -350,7 +364,7 @@ int main(void)
         n/(pow(iterates/added, 3)),
         m==algorithmslen-1 ? '\n' : ',');
     }
-	}
-	fclose(oh);
+  }
+  fclose(oh);
   return 0;
 }

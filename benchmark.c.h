@@ -65,12 +65,12 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
         start=GetUsCount();
         REGION_INSERT(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+n)->node);
         end=GetUsCount();
-        insert+=end-start;
+        insert+=end-start-usCountOverhead;
         start=GetUsCount();
         r=REGION_FIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+ridx)->node);
         end=GetUsCount();
         if(!r) abort();
-        find1+=end-start;
+        find1+=end-start-usCountOverhead;
       }
       for(n=0; n<m; n++)
       {
@@ -78,21 +78,21 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
         r=REGION_FIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+n)->node);
         end=GetUsCount();
         if(!r) abort();
-        find2+=end-start;
+        find2+=end-start-usCountOverhead;
       }
       for(r=REGION_MIN(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree)); r;)
       {
         start=GetUsCount();
         r=REGION_NEXT(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), r);
         end=GetUsCount();
-        iterate+=end-start;
+        iterate+=end-start-usCountOverhead;
       }
       for(n=0; n<m; n++)
       {
         start=GetUsCount();
         REGION_REMOVE(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+n)->node);
         end=GetUsCount();
-        remove+=end-start;
+        remove+=end-start-usCountOverhead;
       }
     }
     ai->inserts[m]=(usCount)((double) insert/l);
