@@ -131,7 +131,7 @@ namespace {
 #endif
 static INLINE unsigned nedtriebitscanr(size_t value)
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__cplusplus_cli)
   unsigned long bitpos;
 #if defined(_M_IA64) || defined(_M_X64) || defined(WIN64)
   assert(8==sizeof(size_t));
@@ -146,8 +146,7 @@ static INLINE unsigned nedtriebitscanr(size_t value)
 #else
   /* The following code is illegal C, but it almost certainly will work.
   If not use the legal implementation below */
-  unsigned bitpos;
-#if 1
+#if !defined(__cplusplus_cli)
 	union {
 		unsigned asInt[2];
 		double asDouble;
@@ -156,22 +155,27 @@ static INLINE unsigned nedtriebitscanr(size_t value)
 
 	asDouble = (double)value + 0.5;
 	n = (asInt[0 /*Use 1 if your CPU is big endian!*/] >> 20) - 1023;
+#ifdef _MSC_VER
+#pragma message(__FILE__ ": WARNING: Make sure you change the line above me if your CPU is big endian!")
+#else
 #warning Make sure you change the line above me if your CPU is big endian!
+#endif
 	return (unsigned) n;
 #else
   size_t x=value;
+  const size_t allbits1=~(size_t)0;
 	x = x | (x >> 1);
 	x = x | (x >> 2);
 	x = x | (x >> 4);
 	x = x | (x >> 8);
 	x = x | (x >>16);
+  if(8==sizeof(x)) x = x | (x >>32);
 	x = ~x;
-	x = x - ((x >> 1) & 0x55555555);
-	x = (x & 0x33333333) + ((x >> 2) & 0x33333333);
-	x = (x + (x >> 4)) & 0x0F0F0F0F;
-	x = x + (x << 8);
-	x = x + (x << 16);
-	return x >> 24;
+  x = x - ((x >> 1) & (allbits1/3));
+  x = (x & (allbits1/15*3)) + ((x >> 2) & (allbits1/15*3));
+  x = ((x + (x >> 4)) & (allbits1/255*15)) * (allbits1/255);
+  x = (8*sizeof(x)-1) - (x >> (8*(sizeof(x)-1)));
+  return (unsigned) x;
 #endif
 #endif
 }

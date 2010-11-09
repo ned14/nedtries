@@ -87,7 +87,7 @@ static usCount GetUsCount()
 static usCount usCountOverhead;
 
 /* Include the Mersenne twister */
-#if defined(_M_X64) || defined(__x86_64__) || (defined(_M_IX86) && _M_IX86_FP>=2) || (defined(__i386__) && defined(__SSE2__))
+#if !defined(__cplusplus_cli) && (defined(_M_X64) || defined(__x86_64__) || (defined(_M_IX86) && _M_IX86_FP>=2) || (defined(__i386__) && defined(__SSE2__)))
 #define HAVE_SSE2 1
 #endif
 #define MEXP 19937
