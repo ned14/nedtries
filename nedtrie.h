@@ -127,6 +127,15 @@ Requires assert() to work, so disables itself if NDEBUG is defined.
 
 #ifdef __cplusplus
 #include <list>
+#if defined(_MSC_VER) && _MSC_VER<=1500
+// Doesn't have std::move<> by default, so define
+namespace std
+{
+  template<class T> T &move(T &a) { return a; }
+  template<class T> T &move(const T &a) { return const_cast<T &>(a); }
+  template<class T, class A> T &forward(A &a) { return a; }
+}
+#endif
 namespace {
 #endif
 static INLINE unsigned nedtriebitscanr(size_t value)

@@ -44,7 +44,10 @@ DEALINGS IN THE SOFTWARE.
 
 #ifdef __cplusplus
 #include <map>
+#if !defined(_MSC_VER) || _MSC_VER>1500
 #include <unordered_map>
+#define HAVE_UNORDERED_MAP 1
+#endif
 #endif
 
 #ifdef WIN32
@@ -315,8 +318,10 @@ int main(void)
     RunTest<nedtries::trie_map<size_t, size_t> >(algorithms+algorithmslen++);
     algorithms[algorithmslen].name="map<size_t>";
     RunTest<map<size_t, size_t> >(algorithms+algorithmslen++);
+#ifdef HAVE_UNORDERED_MAP
     algorithms[algorithmslen].name="unordered_map<size_t>";
     RunTest<unordered_map<size_t, size_t> >(algorithms+algorithmslen++);
+#endif
   }
 #endif
 
