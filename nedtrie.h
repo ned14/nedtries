@@ -140,16 +140,19 @@ namespace {
 #endif
 static INLINE unsigned nedtriebitscanr(size_t value)
 {
+  if(!value) return 0;
 #if defined(_MSC_VER) && !defined(__cplusplus_cli)
-  unsigned long bitpos;
+  {
+    unsigned long bitpos;
 #if defined(_M_IA64) || defined(_M_X64) || defined(WIN64)
-  assert(8==sizeof(size_t));
-  _BitScanReverse64(&bitpos, value);
+    assert(8==sizeof(size_t));
+    _BitScanReverse64(&bitpos, value);
 #else
-  assert(4==sizeof(size_t));
-  _BitScanReverse(&bitpos, value);
+    assert(4==sizeof(size_t));
+    _BitScanReverse(&bitpos, value);
 #endif
-  return (unsigned) bitpos;
+    return (unsigned) bitpos;
+  }
 #elif defined(__GNUC__)
   return sizeof(value)*__CHAR_BIT__ - 1 - (unsigned) __builtin_clzl(value);
 #else
@@ -171,15 +174,16 @@ static INLINE unsigned nedtriebitscanr(size_t value)
 #endif
 	return (unsigned) n;
 #else
+  /* This is a generic 32 and 64 bit compatible branch free bitscan right */
   size_t x=value;
   const size_t allbits1=~(size_t)0;
-	x = x | (x >> 1);
-	x = x | (x >> 2);
-	x = x | (x >> 4);
-	x = x | (x >> 8);
-	x = x | (x >>16);
+  x = x | (x >> 1);
+  x = x | (x >> 2);
+  x = x | (x >> 4);
+  x = x | (x >> 8);
+  x = x | (x >>16);
   if(8==sizeof(x)) x = x | (x >>32);
-	x = ~x;
+  x = ~x;
   x = x - ((x >> 1) & (allbits1/3));
   x = (x & (allbits1/15*3)) + ((x >> 2) & (allbits1/15*3));
   x = ((x + (x >> 4)) & (allbits1/255*15)) * (allbits1/255);
