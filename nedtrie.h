@@ -30,6 +30,14 @@ DEALINGS IN THE SOFTWARE.
 #include <assert.h>
 #include <stdlib.h>
 
+#ifdef _MSC_VER
+/* Disable stupid warnings */
+#pragma warning(push)
+#pragma warning(disable: 4702) /* unreachable code */
+#pragma warning(disable: 4706) /* assignment within conditional expression */
+#pragma warning(disable: 4127) /* conditional expression is constant */
+#endif
+
 /*! \def RESTRICT
 \brief Defined to the restrict keyword or equivalent if available */
 #ifndef RESTRICT
@@ -241,11 +249,11 @@ side by side and hopefully harmonised. */
 #ifdef __cplusplus
 namespace nedtries {
 
-  template<class trietype> int trienobblezeros(trietype *head)
+  template<class trietype> int trienobblezeros(trietype *)
   {
     return 0;
   }
-  template<class trietype> int trienobbleones(trietype *head)
+  template<class trietype> int trienobbleones(trietype *)
   {
     return 1;
   }
@@ -1324,7 +1332,7 @@ namespace nedtries {
     template<class triemaptype> class nobblezeros
     {
     protected:
-      template<class trietype> static int trie_nobblefunction(trietype *head)
+      template<class trietype> static int trie_nobblefunction(trietype *)
       {
         return 0;
       }
@@ -1335,7 +1343,7 @@ namespace nedtries {
     template<class triemaptype> class nobbleones
     {
     protected:
-      template<class trietype> static int trie_nobblefunction(trietype *head)
+      template<class trietype> static int trie_nobblefunction(trietype *)
       {
         return 1;
       }
@@ -1656,4 +1664,8 @@ namespace nedtries {
     return static_cast<const stlcontainer &>(a)>=static_cast<const stlcontainer &>(b);
   }
 } /* namespace */
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 #endif
