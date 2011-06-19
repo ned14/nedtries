@@ -31,7 +31,7 @@ PROJECT_NAME           = nedtries
 # This could be handy for archiving the generated documentation or
 # if some version control system is used.
 
-PROJECT_NUMBER         = v1.00
+PROJECT_NUMBER         = v1.01 RC1
 
 # The OUTPUT_DIRECTORY tag is used to specify the (relative or absolute)
 # base path where the generated documentation will be put.
@@ -848,7 +848,7 @@ GENERATE_HTMLHELP      = YES
 # can add a path in front of the file if the result should not be
 # written to the html output directory.
 
-CHM_FILE               = ../../nedalloc.chm
+CHM_FILE               = ../../nedtries.chm
 
 # If the GENERATE_HTMLHELP tag is set to YES, the HHC_LOCATION tag can
 # be used to specify the location (absolute path including file name) of
@@ -1353,7 +1353,7 @@ HIDE_UNDOC_RELATIONS   = YES
 # toolkit from AT&T and Lucent Bell Labs. The other options in this section
 # have no effect if this option is set to NO (the default)
 
-HAVE_DOT               = YES
+HAVE_DOT               = NO
 
 # By default doxygen will write a font called FreeSans.ttf to the output
 # directory and reference it in all dot files that doxygen generates. This

@@ -3,7 +3,7 @@
 
 <head>
 <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
-<title>nedalloc Readme</title>
+<title>nedtries Readme</title>
 <style type="text/css">
 <!--
 body {
@@ -47,7 +47,7 @@ dt + dd {
 <body>
 
 <div style="text-align: center">
-	<h1 style="text-decoration: underline">nedtries v1.00 (18th June 2010)</h1>
+	<h1 style="text-decoration: underline">nedtries v1.01 RC1 (19th June 2011)</h1>
 	<h2 style="text-decoration: none;">by Niall Douglas</h2>
 	<p>Web site: <a href="http://www.nedprod.com/programs/portable/nedtries/">http://www.nedprod.com/programs/portable/nedtries/</a></p>
 	<hr /></div>
@@ -168,11 +168,11 @@ format. See the enclosed <a href="nedtries.chm">nedtries.chm</a>  for detailed
 API documentation. Here is some sample code:</p>
 <pre>typedef struct foo_s foo_t;
 struct foo_s {
-  REGION_ENTRY(foo_t) link;
+  NEDTRIE_ENTRY(foo_t) link;
   size_t key;
 };
 typedef struct foo_tree_s foo_tree_t;
-REGION_HEAD(foo_tree_s, foo_t);
+NEDTRIE_HEAD(foo_tree_s, foo_t);
 static foo_tree_t footree;
 
 static size_t fookeyfunct(const foo_t *RESTRICT r)
@@ -262,9 +262,10 @@ libraries</a> (and thereafter into the standard C++ language itself), I would be
 very pleased to oblige. <a href="http://www.nedproductions.biz/" target="_blank">
 Please contact ned Productions Consulting Ltd. for further details</a>.</p>
 <h2><a name="changelog">D. ChangeLog:</a></h2>
-<h3>v1.00 RC1 (?):</h3>
+<h3>v1.01 RC1 (19th June 2011):</h3>
 <ul>
-	<li><span class="gitcommit">[master xxxxxxx]</span> Fixed misoperation when trie key is
+	<li><span class="gitcommit">[master xxxxxxx]</span> Fixed misc documentation errors.</li>
+	<li><span class="gitcommit">[master 2103969]</span> Fixed misoperation when trie key is
 zero. Thanks to Andrea for reporting this.</li>
 	<li><span class="gitcommit">[master 083d94b]</span> Added support for MSVC's as old as 7.1.</li>
 	<li><span class="gitcommit">[master f836319]</span> Added Microsoft CLR target support.</li>
