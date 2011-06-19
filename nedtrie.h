@@ -36,6 +36,7 @@ DEALINGS IN THE SOFTWARE.
 #pragma warning(disable: 4702) /* unreachable code */
 #pragma warning(disable: 4706) /* assignment within conditional expression */
 #pragma warning(disable: 4127) /* conditional expression is constant */
+#pragma warning(disable: 4133) /* incompatible types */
 #endif
 
 /*! \def RESTRICT

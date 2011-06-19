@@ -175,7 +175,7 @@ typedef struct foo_tree_s foo_tree_t;
 NEDTRIE_HEAD(foo_tree_s, foo_t);
 static foo_tree_t footree;
 
-static size_t fookeyfunct(const foo_t *RESTRICT r)
+static size_t fookeyfunct(const foo_t *r)
 {
   return r-&gt;key;
 }
