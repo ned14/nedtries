@@ -23,6 +23,12 @@ p {
 	margin-top: 0.5em;
 	margin-bottom: 0.5em;
 }
+pre {
+	background: #eee;
+	width: 80%;
+	margin-left:auto;
+	margin-right:auto;
+}
 ul li, ol li {
 	margin-top: 0.2em;
 	margin-bottom: 0.2em;
@@ -165,22 +171,27 @@ which is the only modern CPU to be so slow. See
 <h2><a name="c-usage">B. C Macro Usage:</a></h2>
 <p>Usage via C macros follows the FreeBSD <a href="rbtree.h">rbtree.h</a> 
 format. See the enclosed <a href="nedtries.chm">nedtries.chm</a>  for detailed 
-API documentation. Here is some sample code:</p>
-<pre>typedef struct foo_s foo_t;
+API documentation. Here is some sample code which can be compiled cleanly using <tt>gcc -Wall -pedantic 
+-std=c99 test.c</tt> (or as C++ via <tt>g++ -Wall -pedantic test.c</tt>):</p>
+<pre>#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+#include &quot;nedtrie.h&quot;
+
+typedef struct foo_s foo_t;
 struct foo_s {
   NEDTRIE_ENTRY(foo_s) link;
   size_t key;
 };
 typedef struct foo_tree_s foo_tree_t;
-NEDTRIE_HEAD(foo_tree_s, foo_t);
+NEDTRIE_HEAD(foo_tree_s, foo_s);
 static foo_tree_t footree;
 
-static size_t fookeyfunct(const foo_t *r)
+size_t fookeyfunct(const foo_t *r)
 {
   return r-&gt;key;
 }
 
-NEDTRIE_GENERATE(static, foo_tree_s, foo_s, link, fookeyfunct, NEDTRIE_NOBBLEZEROS(foo_tree_s));
+NEDTRIE_GENERATE(static, foo_tree_s, foo_s, link, fookeyfunct, NEDTRIE_NOBBLEZEROS(foo_tree_s))
 
 int main(void)
 {
@@ -198,7 +209,7 @@ int main(void)
   NEDTRIE_REMOVE(foo_tree_s, &amp;footree, &amp;a);
   NEDTRIE_FOREACH(r, foo_tree_s, &amp;footree)
   {
-    printf(&quot;%p, %u\n&quot;, r, r-&gt;key);
+    printf(&quot;%p, %u\n&quot;, (void *) r, (unsigned) r-&gt;key);
   }
   NEDTRIE_PREV(foo_tree_s, &amp;footree, &amp;a);
   return 0;
@@ -225,7 +236,7 @@ which is API compatible with the std::map&lt;&gt;, std::multimap&lt;&gt; and std
 STL associative containers. trie_map&lt;&gt; 
 makes full use of rvalue construction if either you are running on C++0x 
 according to the value of __cplusplus, or have 
-defined HAVE_CPP0XRVALUEREFS. In the general case, simply drop trie_map&lt;&gt; in where 
+defined HAVE_CPP0X. In the general case, simply drop trie_map&lt;&gt; in where 
 your STL associative container used to be and enjoy the speed benefits!</p>
 <p>Note that insertion and deletion speed in <strong>any</strong> STL container 
 is heavily bound by the speed of your memory allocator. You may wish to consider 
@@ -265,8 +276,12 @@ Please contact ned Productions Consulting Ltd. for further details</a>.</p>
 <h3>v1.01 RC2 (?):</h3>
 <ul>
 	<li><span class="gitcommit">[master bd6f3e5]</span> Fixed misc documentation errors.</li>
-	<li><span class="gitcommit">[master xxxxxxx]</span> Fixed really obvious 
+	<li><span class="gitcommit">[master 79efb3a]</span> Fixed really obvious 
 	documentation bug in the example usage. Thanks to Fabian Holler for 
+	reporting this.</li>
+	<li><span class="gitcommit">[master xxxxxxx]</span> Fixed that the example 
+	usage in the documentation spews warnings on GCC. Now compiles totally 
+	cleanly. Thanks to Fabian Holler for 
 	reporting this.</li>
 </ul>
 <h3>v1.01 RC1 (19th June 2011):</h3>

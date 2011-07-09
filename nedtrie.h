@@ -136,7 +136,7 @@ Requires assert() to work, so disables itself if NDEBUG is defined.
 
 #ifdef __cplusplus
 #include <list>
-#if defined(_MSC_VER) && _MSC_VER<=1500
+#if (defined(_MSC_VER) && _MSC_VER<=1500) || (defined(__GNUC__) && !defined(HAVE_CPP0X))
 // Doesn't have std::move<> by default, so define
 namespace std
 {
