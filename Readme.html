@@ -194,7 +194,7 @@ int main(void)
   assert(r==&amp;b);
   c.key=5;
   r=NEDTRIE_NFIND(foo_tree_s, &amp;footree, &amp;c);
-  assert(r==&amp;c);
+  assert(r==&amp;b); /* NFIND finds next largest. Invert the key function (i.e. 1-key) to find next smallest. */
   NEDTRIE_REMOVE(foo_tree_s, &amp;footree, &amp;a);
   NEDTRIE_FOREACH(r, foo_tree_s, &amp;footree)
   {
@@ -264,7 +264,10 @@ Please contact ned Productions Consulting Ltd. for further details</a>.</p>
 <h2><a name="changelog">D. ChangeLog:</a></h2>
 <h3>v1.01 RC2 (?):</h3>
 <ul>
-	<li><span class="gitcommit">[master xxxxxxx]</span> Fixed misc documentation errors.</li>
+	<li><span class="gitcommit">[master bd6f3e5]</span> Fixed misc documentation errors.</li>
+	<li><span class="gitcommit">[master xxxxxxx]</span> Fixed really obvious 
+	documentation bug in the example usage. Thanks to Fabian Holler for 
+	reporting this.</li>
 </ul>
 <h3>v1.01 RC1 (19th June 2011):</h3>
 <ul>
