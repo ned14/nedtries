@@ -1124,7 +1124,7 @@ namespace nedtries {
 */
 #define NEDTRIE_EXACTFIND(name, x, y)    name##_NEDTRIE_EXACTFIND(x, y)
 /*! \def NEDTRIE_NFIND
-\brief Finds the item with the nearest key to y in nedtrie x.
+\brief Finds the item with the nearest (larger or equal) key to y in nedtrie x.
 */
 #define NEDTRIE_NFIND(name, x, y)        name##_NEDTRIE_NFIND(x, y)
 /*! \def NEDTRIE_PREV
