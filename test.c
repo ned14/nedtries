@@ -36,6 +36,7 @@ int main(void)
   {
     printf("%p, %u\n", (void *) r, (unsigned) r->key);
   }
-  NEDTRIE_PREV(foo_tree_s, &footree, &a);
+  assert(!NEDTRIE_PREV(foo_tree_s, &footree, &b));
+  assert(!NEDTRIE_NEXT(foo_tree_s, &footree, &b));
   return 0;
 }

@@ -211,7 +211,8 @@ int main(void)
   {
     printf(&quot;%p, %u\n&quot;, (void *) r, (unsigned) r-&gt;key);
   }
-  NEDTRIE_PREV(foo_tree_s, &amp;footree, &amp;a);
+  assert(!NEDTRIE_PREV(foo_tree_s, &amp;footree, &amp;b));
+  assert(!NEDTRIE_NEXT(foo_tree_s, &amp;footree, &amp;b));
   return 0;
 }</pre>
 <p>There isn&#39;t really much more to it - if you want to throw away the trie, 
