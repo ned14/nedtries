@@ -7,7 +7,7 @@ reporter: '"Niall Douglas" <ned@lyta>'
 severity: wishlist
 
 
-status: assigned
+status: open
 
 
 summary: Halve size of NEDTRIE_HEAD by storing two bits per bucket. Suggested by Lyxar
