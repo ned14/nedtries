@@ -280,8 +280,8 @@ namespace nedtries {
 #define NEDTRIE_NOBBLEONES(name)    name##_nobbleones
 #define NEDTRIE_NOBBLEEQUALLY(name) name##_nobbleequally
 #define NEDTRIE_GENERATE_NOBBLES(proto, name, type, field, keyfunct) \
-  static INLINE int name##_nobblezeros(struct name *head) { return 0; } \
-  static INLINE int name##_nobbleones(struct name *head) { return 1; } \
+  static INLINE int name##_nobblezeros(struct name *) { return 0; } \
+  static INLINE int name##_nobbleones(struct name *) { return 1; } \
   static INLINE int name##_nobbleequally(struct name *head) { return (head->nobbledir=!head->nobbledir); }
 #endif /* __cplusplus */
 
