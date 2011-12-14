@@ -1160,6 +1160,14 @@ namespace nedtries {
 	     (x) != NULL;                             \
 	     (x) = NEDTRIE_NEXT(name, head, x))
 
+/*! \def NEDTRIE_FOREACH_SAFE
+\brief Substitutes a for loop which forward iterates into x all items in
+nedtrie head and is safe against removal of x. */
+#define NEDTRIE_FOREACH_SAFE(x, name, head, y)  \
+	for ((x) = NEDTRIE_MIN(name, head);           \
+	     (x) != NULL && ((y) = NEDTRIE_NEXT(name, head, x), 1); \
+	     (x) = (y))
+
 /*! \def NEDTRIE_FOREACH_REVERSE
 \brief Substitutes a for loop which forward iterates into x all items in nedtrie head.
 */
@@ -1167,6 +1175,15 @@ namespace nedtries {
 	for ((x) = NEDTRIE_MAX(name, head);           \
 	     (x) != NULL;                             \
 	     (x) = NEDTRIE_PREV(name, head, x))
+
+/*! \def NEDTRIE_FOREACH_REVERSE_SAFE
+\brief Substitutes a for loop which forward iterates into x all items in
+nedtrie head and is safe against removal of x.
+*/
+#define NEDTRIE_FOREACH_REVERSE_SAFE(x, name, head, y)  \
+	for ((x) = NEDTRIE_MAX(name, head);           \
+	     (x) != NULL && ((y) = NEDTRIE_PREV(name, head, x), 1); \
+	     (x) = (y))
 
 /*! \def NEDTRIE_HASNODEHEADER
 \brief Returns true if this item's node header is active. Useful as a quick check for whether a node is in some trie.
