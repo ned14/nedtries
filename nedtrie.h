@@ -1191,6 +1191,7 @@ nedtrie head and is safe against removal of x.
 #define NEDTRIE_HASNODEHEADER(treevar, node, link)  ((node)->link.trie_parent || (node)->link.trie_prev)
 
 #ifdef __cplusplus
+#include <functional>
 namespace nedtries {
 
 #ifndef NDEBUG
@@ -1334,7 +1335,7 @@ namespace nedtries {
   other things. Automatically defined if __cplusplus indicates a C++0x compiler,
   otherwise you'll need to set it yourself.
   */
-#if __cplusplus > 199711L || defined(HAVE_CPP0X) /* Do we have C++0x? */
+#if __cplusplus > 199711L || (defined(_MSC_VER) && _MSC_VER>=1600) || defined(HAVE_CPP0X) /* Do we have C++0x? */
 #undef HAVE_CPP0XRVALUEREFS
 #define HAVE_CPP0XRVALUEREFS 1
 #undef HAVE_CPP0XTYPETRAITS
@@ -1379,12 +1380,64 @@ namespace nedtries {
     };
   } // namspace
   template<class type> NEDTRIE_HEAD2(trie_map_head, type);
-  template<class type, class iteratortype> struct trie_maptype;
-  template<class type, class iteratortype> size_t trie_maptype_keyfunct(const trie_maptype<type, iteratortype> *);
-  template<class keytype, class type,
-    class allocator=std::allocator<trie_maptype<std::pair<keytype, type>, std::list<size_t>::iterator> >,
+  template<class keytype, class type, class keyfunct, class iteratortype> struct trie_maptype;
+  /*! \struct trie_keyfunct
+  \ingroup C++
+  \brief Calculates the key for a given instance of type
+
+  You only really need to use this if you are using trie_multimap or trie_map without the operator[]
+  override. If using with trie_map, make sure you force the use of trie_keyfunct in its template
+  parameters as it defaults to an internal thunk type used to indirect access to an embedded key store.
+
+  Specialise this as follows for your type:
+  \code
+  namespace nedtries {
+    template<> struct trie_keyfunct<yourtype> : public std::unary_function<yourtype, size_t>
+    {
+      size_t operator()(const yourtype *RESTRICT v) const
+      {
+        return v->yourtypekeyvalue;
+      }
+    };
+  }
+  \endcode
+  */
+  template<class keytype, class type> struct trie_keyfunct : public std::unary_function<type, keytype>
+  {
+#ifdef HAVE_CPP0XRVALUEREFS
+	  keytype operator()(const type &v) const
+	  {
+		  static_assert(false, "trie_keyfunct has not been specialised for this type");
+	  }
+#else
+  private:
+	  keytype operator()(const type &) const;
+#endif
+  };
+  template<class keytype, class type> struct trie_maptype_keyfunct : public std::unary_function<type, keytype>
+  {
+	  template<class maptype> keytype operator()(const maptype &v) const
+	  {
+	    return v.trie_keyvalue;
+	  }
+  };
+  namespace intern {
+    template<class type> struct noconstiteratortype : public type { };
+    template<class keyfunct_, class mapvaluetype> size_t to_Ckeyfunct(const mapvaluetype *RESTRICT v)
+    {
+      return keyfunct_()(*v);
+    }
+  }
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer,
+    class iteratortype, int dir, class mapvaluetype, class constiteratortype=intern::noconstiteratortype<iteratortype> > class trie_iterator;
+  template<class keytype, class type, class keyfunct=trie_maptype_keyfunct<keytype, type>,
+    class allocator=std::allocator<trie_maptype<keytype, type, keyfunct, std::list<size_t>::iterator> >,
     template<class> class nobblepolicy=nedpolicy::nobblezeros, 
-    class stlcontainer=std::list<trie_maptype<std::pair<keytype, type>, std::list<size_t>::iterator> > > class trie_map;
+    class stlcontainer=std::list<trie_maptype<keytype, type, keyfunct, std::list<size_t>::iterator>, allocator> > class trie_map;
+  template<class keytype, class type, class keyfunct=trie_keyfunct<keytype, type>, 
+    class allocator=std::allocator<trie_maptype<keytype, type, keyfunct, std::list<size_t>::iterator> >,
+    template<class> class nobblepolicy=nedpolicy::nobblezeros, 
+    class stlcontainer=std::list<trie_maptype<keytype, type, keyfunct, std::list<size_t>::iterator>, allocator> > class trie_multimap;
   /*! \struct trie_maptype
   \ingroup C++
   \brief Encapsulates the nedtrie metadata with the given type
@@ -1392,12 +1445,16 @@ namespace nedtries {
   Note that the nedtrie metadata is kept \em after the typed value - this prevents the nedtrie metadata interfering
   with any special data alignment you might be using from a specialised STL allocator.
   */
-  template<class type, class iteratortype> struct trie_maptype
+  template<class keytype, class type, class keyfunct, class iteratortype> struct trie_maptype
   {
   private:
-    template<class keytype, class type_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_map;
-    template<class type_, class iteratortype_> friend size_t trie_maptype_keyfunct(const trie_maptype<type_, iteratortype_> *);
+    template<class keytype_, class type_> friend struct trie_keyfunct;
+    template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer, class iteratortype_, int dir, class mapvaluetype, class constiteratortype> friend class trie_iterator;
+    template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_map;
+    template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_multimap;
+    typedef keytype trie_key_type;
     typedef type trie_value_type;
+    typedef keyfunct trie_keyfunct_type;
     typedef iteratortype trie_iterator_type;
     type trie_value;
     iteratortype trie_iterator;
@@ -1405,16 +1462,117 @@ namespace nedtries {
     static const size_t trie_link_offset=sizeof(type)+sizeof(iteratortype); // GCC won't accept offsetof() as a template argument sadly :(
   public:
     trie_maptype(const type &v) : trie_value(v) { }
-    template<class otype, class oittype> trie_maptype(const trie_maptype<otype, oittype> &o) : trie_value(o.trie_value) { }
+    template<class keytype_, class type_, class keyfunct_, class iteratortype_> trie_maptype(const trie_maptype<keytype_, type_, keyfunct_, iteratortype_> &o) : trie_value(o.trie_value) { }
 #ifdef HAVE_CPP0XRVALUEREFS
-	  template<class otype, class oittype> trie_maptype(trie_maptype<otype, oittype> &&o) : trie_value(std::move(o.trie_value)) { }
+    template<class keytype_, class type_, class keyfunct_, class iteratortype_> trie_maptype(trie_maptype<keytype_, type_, keyfunct_, iteratortype_> &&o) : trie_value(std::move(o.trie_value)) { }
 #endif
     //! Silent const lvalue converter for type
     operator const type &() const { return trie_value; }
   };
-  template<class type, class iteratortype> size_t trie_maptype_keyfunct(const trie_maptype<type, iteratortype> *v)
+  template<class keytype, class type, class iteratortype> struct trie_maptype<keytype, type, trie_maptype_keyfunct<keytype, type>, iteratortype>
   {
-    return v->trie_value.first;
+  private:
+    template<class keytype_, class type_> friend struct trie_keyfunct;
+    template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer, class iteratortype_, int dir, class mapvaluetype, class constiteratortype> friend class trie_iterator;
+    template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_map;
+    template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_multimap;
+    template<class keytype_, class type_> friend struct trie_maptype_keyfunct;
+    typedef keytype trie_key_type;
+    typedef type trie_value_type;
+    typedef trie_maptype_keyfunct<keytype, type> trie_keyfunct_type;
+    typedef iteratortype trie_iterator_type;
+    type trie_value;
+    keytype trie_keyvalue; // For when key is overriden using trie_map::operator[]
+    iteratortype trie_iterator;
+    TrieLink_t<type> trie_link;
+    static const size_t trie_link_offset=sizeof(type)+sizeof(keytype)+sizeof(iteratortype); // GCC won't accept offsetof() as a template argument sadly :(
+  public:
+    trie_maptype(const type &v) : trie_value(v) { }
+    template<class keytype_, class type_, class iteratortype_> trie_maptype(const trie_maptype<keytype_, type_, trie_maptype_keyfunct<keytype_, type_>, iteratortype_> &o) : trie_value(o.trie_value), trie_keyvalue(o.trie_keyvalue) { }
+#ifdef HAVE_CPP0XRVALUEREFS
+    template<class keytype_, class type_, class iteratortype_> trie_maptype(trie_maptype<keytype_, type_, trie_maptype_keyfunct<keytype_, type_>, iteratortype_> &&o) : trie_value(std::move(o.trie_value)), trie_keyvalue(std::move(o.trie_keyvalue)) { }
+#endif
+    //! Silent const lvalue converter for type
+    operator const type &() const { return trie_value; }
+  };
+
+  /*! \class trie_iterator
+  \ingroup C++
+  \brief Iterator for the trie_map and trie_multimap containers
+  */
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer, class iteratortype, int dir, class mapvaluetype, class constiteratortype> class trie_iterator : protected iteratortype
+  {
+    trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *parent;
+  public:
+    typedef typename iteratortype::value_type::trie_value_type value_type;
+    typedef typename iteratortype::difference_type difference_type;
+    typedef typename iteratortype::pointer pointer;
+    typedef typename iteratortype::reference reference;
+    typedef typename iteratortype::iterator_category iterator_category;
+
+    operator constiteratortype () const { return constiteratortype(parent, static_cast<const iteratortype &>(*this)); }
+
+    trie_iterator() : parent(0) { }
+    trie_iterator(const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *parent_, const iteratortype &o) : iteratortype(o), parent(const_cast<trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *>(parent_)) { }
+    trie_iterator(const trie_iterator &o) : iteratortype(o), parent(o.parent) { }
+#ifdef HAVE_CPP0XRVALUEREFS
+    trie_iterator(trie_iterator &&o) : iteratortype(std::move(o)), parent(o.parent) { }
+#endif
+    trie_iterator &operator=(const trie_iterator &o)
+    {
+      return *new(this) trie_iterator(o);
+    }
+#ifdef HAVE_CPP0XRVALUEREFS
+    trie_iterator &operator=(trie_iterator &&o)
+    {
+      return *new(this) trie_iterator(std::move(o));
+    }
+#endif
+    trie_iterator &operator++()
+    {
+      mapvaluetype *r=dir>0 ?
+        trienext<trie_map_head<mapvaluetype>, mapvaluetype, mapvaluetype::trie_link_offset, intern::to_Ckeyfunct<typename mapvaluetype::trie_keyfunct_type> >(&parent->triehead, (mapvaluetype *)(&**this)) :
+        trieprev<trie_map_head<mapvaluetype>, mapvaluetype, mapvaluetype::trie_link_offset, intern::to_Ckeyfunct<typename mapvaluetype::trie_keyfunct_type> >(&parent->triehead, (mapvaluetype *)(&**this));
+      if(r)
+        new(this) iteratortype((iteratortype &) r->trie_iterator);
+      else
+        *this=parent->end();
+      return *this;
+    }
+    trie_iterator &operator++(int) { trie_iterator tmp(*this); operator++(); return tmp; }
+    trie_iterator &operator--()
+    {
+      mapvaluetype *r=dir<0 ?
+        trienext<trie_map_head<mapvaluetype>, mapvaluetype, mapvaluetype::trie_link_offset, intern::to_Ckeyfunct<typename mapvaluetype::trie_keyfunct_type> >(&parent->triehead, (mapvaluetype *)(&**this)) :
+        trieprev<trie_map_head<mapvaluetype>, mapvaluetype, mapvaluetype::trie_link_offset, intern::to_Ckeyfunct<typename mapvaluetype::trie_keyfunct_type> >(&parent->triehead, (mapvaluetype *)(&**this));
+      if(r)
+        new(this) iteratortype((iteratortype &) r->trie_iterator);
+      else
+        *this=parent->end();
+      return *this;
+    }
+    trie_iterator &operator--(int) { trie_iterator tmp(*this); operator--(); return tmp; }
+    bool operator==(const trie_iterator &o) const { return static_cast<const iteratortype &>(*this)==static_cast<const iteratortype &>(o); }
+    bool operator!=(const trie_iterator &o) const { return static_cast<const iteratortype &>(*this)!=static_cast<const iteratortype &>(o); }
+    const mapvaluetype &operator *() const { return (const mapvaluetype &) iteratortype::operator *(); }
+    mapvaluetype &operator *() { return (mapvaluetype &) iteratortype::operator *(); }
+    const mapvaluetype *operator ->() const { return (const mapvaluetype *) iteratortype::operator->(); }
+    mapvaluetype *operator ->() { return (mapvaluetype *) iteratortype::operator->(); }
+  };
+
+  namespace intern
+  {
+      template<class key_type> struct keystore_t { size_t magic; const key_type &key; keystore_t(size_t magic_, const key_type &key_) : magic(magic_), key(key_) { } private: keystore_t &operator=(const keystore_t &); };
+      template<class keytype, class type, class mapvaluetype, class keyfunct> struct findkeyfunct_t : public std::unary_function<type, keytype>
+      {
+    	  size_t operator()(const mapvaluetype &v) const
+        {
+          keystore_t<keytype> *r=(keystore_t<keytype> *)(void *)(&v);
+          if(r->magic==*(size_t *)"TRIEFINDKEYSTORE")
+            return r->key;
+          return keyfunct()(v);
+        }
+  	  };
   }
 
   /*! \class trie_map
@@ -1454,38 +1612,29 @@ namespace nedtries {
   Otherwise the iterators trie_map uses to link nedtrie items into the STL items will become invalidated on storage
   expansion.
   */
-  template<class keytype, class type, class allocator, template<class> class nobblepolicy, class stlcontainer> class trie_map : protected stlcontainer, protected nobblepolicy<trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> >
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> class trie_map : protected stlcontainer, protected nobblepolicy<trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> >
   {
-    typedef nobblepolicy<trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> > nobblepolicytype;
+    typedef nobblepolicy<trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> > nobblepolicytype;
     typedef typename stlcontainer::value_type mapvaluetype;
     static const size_t trie_fieldoffset=mapvaluetype::trie_link_offset;
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_, class iteratortype_, int dir, class mapvaluetype, class constiteratortype> friend class trie_iterator;
   public:
     typedef typename stlcontainer::allocator_type allocator_type;
-    typedef typename stlcontainer::const_iterator const_iterator;
+    typedef trie_iterator<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer, typename stlcontainer::const_iterator, 1, mapvaluetype> const_iterator;
     typedef typename stlcontainer::const_pointer const_pointer;
     typedef typename stlcontainer::const_reference const_reference;
-    typedef typename stlcontainer::const_reverse_iterator const_reverse_iterator;
+    typedef trie_iterator<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer, typename stlcontainer::const_reverse_iterator, -1, mapvaluetype> const_reverse_iterator;
     typedef typename stlcontainer::difference_type difference_type;
-    typedef typename stlcontainer::iterator iterator;
+    typedef trie_iterator<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer, typename stlcontainer::iterator, 1, mapvaluetype, const_iterator> iterator;
     typedef keytype key_type;
     typedef type mapped_type;
     typedef typename stlcontainer::pointer pointer;
     typedef typename stlcontainer::reference reference;
-    typedef typename stlcontainer::reverse_iterator reverse_iterator;
+    typedef trie_iterator<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer, typename stlcontainer::reverse_iterator, -1, mapvaluetype, const_reverse_iterator> reverse_iterator;
     typedef typename stlcontainer::size_type size_type;
     typedef typename stlcontainer::value_type::trie_value_type value_type;
   private:
     trie_map_head<mapvaluetype> triehead;
-    static const_iterator &to_iterator(const typename mapvaluetype::trie_iterator_type &it)
-    {
-      void *_it=(void *) &it;
-      return *(const_iterator *)_it;
-    }
-    static iterator &to_iterator(typename mapvaluetype::trie_iterator_type &it)
-    {
-      void *_it=(void *) &it;
-      return *(iterator *)_it;
-    }
     static typename mapvaluetype::trie_iterator_type &from_iterator(iterator &it)
     {
       void *_it=(void *) &it;
@@ -1497,35 +1646,53 @@ namespace nedtries {
       NEDTRIE_INIT(&triehead);
       for(iterator it=begin(); it!=end(); ++it)
       {
-        trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, &(*it));
+        trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, &(*it));
         it->trie_iterator=it;
       }
     }
     const mapvaluetype *triehead_find(const key_type &key) const
-    { // Avoid a value_type construction
+    { // Avoid a value_type construction using pure unmitigated evil
       char buffer[sizeof(mapvaluetype)];
-      mapvaluetype *RESTRICT r=(mapvaluetype *RESTRICT) buffer;
-      r->trie_value.first=key;
-      return triefind<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, r);
+      new(buffer) intern::keystore_t<key_type>(*(size_t *)"TRIEFINDKEYSTORE", key);
+      return triefind<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<intern::findkeyfunct_t<keytype, type, mapvaluetype, keyfunct> > >(&triehead, (mapvaluetype *) buffer);
     }
     iterator triehead_insert(const value_type &val)
     {
-      iterator it=stlcontainer::insert(end(), std::move(val));
+      iterator it=iterator(this, stlcontainer::insert(stlcontainer::end(), std::move(val)));
       it->trie_iterator=from_iterator(it);
-      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, &(*it));
+      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, const_cast<mapvaluetype *>(&(*it)));
       return it;
     }
 #ifdef HAVE_CPP0XRVALUEREFS
     iterator triehead_insert(value_type &&val)
     {
-      iterator it=stlcontainer::insert(end(), std::move(val));
+      iterator it=iterator(this, stlcontainer::insert(stlcontainer::end(), std::move(val)));
       it->trie_iterator=from_iterator(it);
-      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, &(*it));
+      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, const_cast<mapvaluetype *>(&(*it)));
+      return it;
+    }
+#endif
+    iterator triehead_insert(const keytype &key, const value_type &val)
+    {
+      iterator it=iterator(this, stlcontainer::insert(stlcontainer::end(), std::move(val)));
+      it->trie_iterator=from_iterator(it);
+      it->trie_keyvalue=key;
+      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, const_cast<mapvaluetype *>(&(*it)));
+      return it;
+    }
+#ifdef HAVE_CPP0XRVALUEREFS
+    iterator triehead_insert(const keytype &key, value_type &&val)
+    {
+      iterator it=iterator(this, stlcontainer::insert(stlcontainer::end(), std::move(val)));
+      it->trie_iterator=from_iterator(it);
+      it->trie_keyvalue=key;
+      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, const_cast<mapvaluetype *>(&(*it)));
       return it;
     }
 #endif
   public:
-    using stlcontainer::begin;
+    iterator begin() { return iterator(this, stlcontainer::begin()); }
+    const_iterator begin() const { return const_iterator(this, stlcontainer::begin()); }
     using stlcontainer::clear;
     //! Returns the number of items with the key \em key
     size_type count(const key_type &key) const
@@ -1540,14 +1707,15 @@ namespace nedtries {
       return ret;
     }
     using stlcontainer::empty;
-    using stlcontainer::end;
+    iterator end() { return iterator(this, stlcontainer::end()); }
+    const_iterator end() const { return const_iterator(this, stlcontainer::end()); }
     //std::pair<iterator, iterator> equal_range(const key_type &key);
     //std::pair<const_iterator, const_iterator> equal_range(const key_type &key) const;
     //! Removes the item specified by \em it from the container
     iterator erase(iterator it)
     {
       //int (*nobblefunct)(trietype *head)
-      trieremove<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct,
+      trieremove<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct>,
         // Need to give MSVC a little bit of help
 #ifdef _MSC_VER
         nobblepolicytype::trie_nobblefunction<trie_map_head<mapvaluetype> >
@@ -1555,22 +1723,24 @@ namespace nedtries {
         nobblepolicytype::trie_nobblefunction
 #endif
       >(&triehead, &(*it));
-      return stlcontainer::erase(it);
+      return iterator(this, stlcontainer::erase((typename stlcontainer::iterator &) it));
     }
     //! Removes the items between \em first and \em last from the container
     iterator erase(iterator first, iterator last)
     {
+      iterator ret(last); ++ret;
       for(iterator it=first; it!=last; ++it)
       {
-        trieremove<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct,
+        trieremove<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct>,
 #ifdef _MSC_VER
           nobblepolicytype::trie_nobblefunction<trie_map_head<mapvaluetype> >
 #else
           nobblepolicytype::trie_nobblefunction
 #endif
         >(&triehead, &(*it));
+        stlcontainer::erase((typename stlcontainer::iterator &) it);
       }
-      return stlcontainer::erase(first, last);
+      return ret;
     }
     //! Finds the item with key \em key
     iterator find(const key_type &key) { const_iterator it=static_cast<const trie_map *>(this)->find(key); void *_it=(void *) &it; return *(iterator *)_it; }
@@ -1578,17 +1748,17 @@ namespace nedtries {
     const_iterator find(const key_type &key) const
     {
       const mapvaluetype *r=triehead_find(key);
-      return !r ? end() : to_iterator(r->trie_iterator);
+      return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
     }
     using stlcontainer::get_allocator;
     //! Inserts the item \em val
     std::pair<iterator, bool> insert(const value_type &val)
     {
-      mapvaluetype *r=const_cast<mapvaluetype *>(triehead_find(val.trie_value.first));
+      mapvaluetype *r=const_cast<mapvaluetype *>(triehead_find(keyfunct()(val)));
       if(r)
       {
-        r->trie_value=std::move(val.trie_value);
-        return std::make_pair(to_iterator(r->trie_iterator), false);
+        r->trie_value=std::move(val);
+        return std::make_pair(iterator(this, (typename stlcontainer::iterator &) r->trie_iterator), false);
       }
       return std::make_pair(triehead_insert(std::move(val)), true);
     }
@@ -1597,7 +1767,7 @@ namespace nedtries {
     {
       iterator it=stlcontainer::insert(at, val);
       it->trie_iterator=from_iterator(it);
-      trieinsert<trie_map_head, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, &(*it));
+      trieinsert<trie_map_head, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, &(*it));
       return it;
     }
     //! Inserts the items between \em first and \em last
@@ -1608,15 +1778,17 @@ namespace nedtries {
       for(; it!=end(); ++it)
       {
         it->trie_iterator=from_iterator(it);
-        trieinsert<trie_map_head, mapvaluetype, trie_fieldoffset, trie_maptype_keyfunct>(&triehead, &(*it));
+        trieinsert<trie_map_head, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, &(*it));
       }
     }
     //key_compare key_comp() const;
     //iterator lower_bound(const key_type &key);
     //const_iterator lower_bound(const key_type &key) const;
     using stlcontainer::max_size;
-    using stlcontainer::rbegin;
-    using stlcontainer::rend;
+    reverse_iterator rbegin() { return reverse_iterator(this, stlcontainer::begin()); }
+    const_reverse_iterator rbegin() const { return const_reverse_iterator(this, stlcontainer::begin()); }
+    reverse_iterator rend() { return reverse_iterator(this, stlcontainer::end()); }
+    const_reverse_iterator rend() const { return const_reverse_iterator(this, stlcontainer::end()); }
     using stlcontainer::size;
     using stlcontainer::swap;
     //iterator upper_bound(const key_type &key);
@@ -1626,16 +1798,22 @@ namespace nedtries {
     mapped_type &operator[](const keytype &key)
     {
       mapvaluetype *r=const_cast<mapvaluetype *>(triehead_find(key));
-      iterator it=r ? to_iterator(r->trie_iterator) : triehead_insert(std::move(value_type(key, std::move(type()))));
-      return it->trie_value.second;
+      iterator it;
+      if(r)
+        it=iterator(this, (typename stlcontainer::iterator &) r->trie_iterator);
+      else
+      {
+        it=triehead_insert(key, std::move(type()));
+      }
+      return it->trie_value;
     }
 
-    template<class keytype_, class type_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator!=(const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &b);
-    template<class keytype_, class type_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator<(const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &b);
-    template<class keytype_, class type_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator<=(const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &b);
-    template<class keytype_, class type_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator==(const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &b);
-    template<class keytype_, class type_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator>(const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &b);
-    template<class keytype_, class type_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator>=(const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, allocator_, nobblepolicy_, stlcontainer_> &b);
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator!=(const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator<(const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator<=(const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator==(const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator>(const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator>=(const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_map<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
 
     //! Constructs a trie_map. Has all the typical STL overloads
     trie_map() : stlcontainer() { NEDTRIE_INIT(&triehead); }
@@ -1657,30 +1835,279 @@ namespace nedtries {
     template<class inputiterator> trie_map(inputiterator s, inputiterator e) : stlcontainer(s, e) { triehead_reindex(); }
     template<class inputiterator> trie_map(inputiterator s, inputiterator e, const allocator &a) : stlcontainer(s, e, a) { triehead_reindex(); }
   };
-  template<class keytype, class type, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator!=(const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &b)
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator!=(const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &b)
   {
     return static_cast<const stlcontainer &>(a)!=static_cast<const stlcontainer &>(b);
   }
-  template<class keytype, class type, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator<(const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &b)
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator<(const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &b)
   {
     return static_cast<const stlcontainer &>(a)<static_cast<const stlcontainer &>(b);
   }
-  template<class keytype, class type, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator<=(const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &b)
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator<=(const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &b)
   {
     return static_cast<const stlcontainer &>(a)<=static_cast<const stlcontainer &>(b);
   }
-  template<class keytype, class type, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator==(const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &b)
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator==(const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &b)
   {
     return static_cast<const stlcontainer &>(a)==static_cast<const stlcontainer &>(b);
   }
-  template<class keytype, class type, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator>(const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &b)
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator>(const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &b)
   {
     return static_cast<const stlcontainer &>(a)>static_cast<const stlcontainer &>(b);
   }
-  template<class keytype, class type, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator>=(const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, allocator, nobblepolicy, stlcontainer> &b)
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator>=(const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &b)
   {
     return static_cast<const stlcontainer &>(a)>=static_cast<const stlcontainer &>(b);
   }
+
+  /*! \class trie_multimap
+  \ingroup C++
+  \brief A STL container wrapper using nedtries to map keys to values.
+
+  This class can be used to wrap any arbitrary STL container with nedtrie associativity. For example, if you
+  had a std::vector<> list of items, you could add nedtrie's fast nearly constant time algorithm for accessing them -
+  though one would expect that a std::list<> would be the most common combination. There is no strict reason why
+  one could not wrap std::unordered_map<>, though what one would gain is hard to imagine!
+
+  Usage in the simplest sense is like this as the default template parameters use std::list<> as the underlying
+  container:
+  \code
+  trie_multimap<size_t, Foo> fooMap;
+  fooMap[5]=Foo();
+  fooMap.erase(fooMap.find(5));
+  \endcode
+
+  Unlike a proper STL container implementation, this wrapper is very much a hack in the sense that it's a very quick
+  and dirty way of implementing lots of nedtrie based STL containers at once. In this sense it does require its user
+  to not be stupid, and to know what they're doing. STL containers go out of their way to enforce correctness - well,
+  this wrapper most certainly does not. If you want to blow off your own foot, this implementation won't stop you!
+
+  For example, despite the protected STL container inheritance, all common STL functions are made public so you
+  can if you want easily corrupt the internal state. Equally, if you know what you are doing you can pass in the
+  wrapper as a const version of its underlying STL container by reintrpret_cast<>-ing it. Despite this, the wrapper
+  is fairly typesafe in that its design won't introduce subtle bugs or cause existing code to magically break itself.
+
+  If you would like a more proper bitwise trie STL container class implemented, or would like to be advised on any
+  algorithmic problems from which your IT project may be suffering, my consulting company <a
+  href="http://www.nedproductions.biz/">ned Productions Consulting Ltd</a> would be happy to advise. In particular
+  I would love to see a full bitwise trie implementation submitted to the Boost C++ libraries but I don't have the
+  unpaid time to devote to such an endeavour sadly.
+
+  \warning If you use std::vector<> as the STL container, make SURE you resize() it to its maximum size before use.
+  Otherwise the iterators trie_multimap uses to link nedtrie items into the STL items will become invalidated on storage
+  expansion.
+  */
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> class trie_multimap : protected stlcontainer, protected nobblepolicy<trie_multimap<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> >
+  {
+    typedef nobblepolicy<trie_multimap<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> > nobblepolicytype;
+    typedef typename stlcontainer::value_type mapvaluetype;
+    static const size_t trie_fieldoffset=mapvaluetype::trie_link_offset;
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_, class iteratortype_, int dir, class mapvaluetype, class constiteratortype> friend class trie_iterator;
+  public:
+    typedef typename stlcontainer::allocator_type allocator_type;
+    typedef trie_iterator<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer, typename stlcontainer::const_iterator, 1, mapvaluetype> const_iterator;
+    typedef typename stlcontainer::const_pointer const_pointer;
+    typedef typename stlcontainer::const_reference const_reference;
+    typedef trie_iterator<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer, typename stlcontainer::const_reverse_iterator, -1, mapvaluetype> const_reverse_iterator;
+    typedef typename stlcontainer::difference_type difference_type;
+    typedef trie_iterator<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer, typename stlcontainer::iterator, 1, mapvaluetype, const_iterator> iterator;
+    typedef keytype key_type;
+    typedef type mapped_type;
+    typedef typename stlcontainer::pointer pointer;
+    typedef typename stlcontainer::reference reference;
+    typedef trie_iterator<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer, typename stlcontainer::reverse_iterator, -1, mapvaluetype, const_reverse_iterator> reverse_iterator;
+    typedef typename stlcontainer::size_type size_type;
+    typedef typename stlcontainer::value_type::trie_value_type value_type;
+  private:
+    trie_map_head<mapvaluetype> triehead;
+    static typename mapvaluetype::trie_iterator_type &from_iterator(iterator &it)
+    {
+      void *_it=(void *) &it;
+      return *(typename mapvaluetype::trie_iterator_type *)_it;
+    }
+    // Wipes and resets the nedtrie index
+    void triehead_reindex()
+    {
+      NEDTRIE_INIT(&triehead);
+      for(iterator it=begin(); it!=end(); ++it)
+      {
+        trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, &(*it));
+        it->trie_iterator=it;
+      }
+    }
+    const mapvaluetype *triehead_find(const key_type &key) const
+    { // Avoid a value_type construction using pure unmitigated evil
+      char buffer[sizeof(mapvaluetype)];
+      new(buffer) intern::keystore_t<key_type>(*(size_t *)"TRIEFINDKEYSTORE", key);
+      return triefind<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<intern::findkeyfunct_t<keytype, type, mapvaluetype, keyfunct> > >(&triehead, (mapvaluetype *) buffer);
+    }
+    iterator triehead_insert(const value_type &val)
+    {
+      iterator it=iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, stlcontainer::insert(stlcontainer::end(), std::move(val)));
+      it->trie_iterator=from_iterator(it);
+      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, const_cast<mapvaluetype *>(&(*it)));
+      return it;
+    }
+#ifdef HAVE_CPP0XRVALUEREFS
+    iterator triehead_insert(value_type &&val)
+    {
+      iterator it=iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, stlcontainer::insert(stlcontainer::end(), std::move(val)));
+      it->trie_iterator=from_iterator(it);
+      trieinsert<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, const_cast<mapvaluetype *>(&(*it)));
+      return it;
+    }
+#endif
+  public:
+    iterator begin() { return iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, stlcontainer::begin()); }
+    const_iterator begin() const { return const_iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, stlcontainer::begin()); }
+    using stlcontainer::clear;
+    //! Returns the number of items with the key \em key
+    size_type count(const key_type &key) const
+    {
+      size_type ret=0;
+      const mapvaluetype *r=triehead_find(key);
+      if(r)
+      {
+        if(r->trie_link.prev) r=r->trie_link.trie_prev;
+        for(; r; r=r->trie_link.trie_next) ret++;
+      }
+      return ret;
+    }
+    using stlcontainer::empty;
+    iterator end() { return iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, stlcontainer::end()); }
+    const_iterator end() const { return const_iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, stlcontainer::end()); }
+    //std::pair<iterator, iterator> equal_range(const key_type &key);
+    //std::pair<const_iterator, const_iterator> equal_range(const key_type &key) const;
+    //! Removes the item specified by \em it from the container
+    iterator erase(iterator it)
+    {
+      //int (*nobblefunct)(trietype *head)
+      trieremove<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct>,
+        // Need to give MSVC a little bit of help
+#ifdef _MSC_VER
+        nobblepolicytype::trie_nobblefunction<trie_map_head<mapvaluetype> >
+#else
+        nobblepolicytype::trie_nobblefunction
+#endif
+      >(&triehead, &(*it));
+      return iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, stlcontainer::erase((typename stlcontainer::iterator &) it));
+    }
+    //! Removes the items between \em first and \em last from the container
+    iterator erase(iterator first, iterator last)
+    {
+      iterator ret(last); ++ret;
+      for(iterator it=first; it!=last; ++it)
+      {
+        trieremove<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct>,
+#ifdef _MSC_VER
+          nobblepolicytype::trie_nobblefunction<trie_map_head<mapvaluetype> >
+#else
+          nobblepolicytype::trie_nobblefunction
+#endif
+        >(&triehead, &(*it));
+        stlcontainer::erase((typename stlcontainer::iterator &) it);
+      }
+      return ret;
+    }
+    //! Finds the item with key \em key
+    iterator find(const key_type &key) { const_iterator it=static_cast<const trie_multimap *>(this)->find(key); void *_it=(void *) &it; return *(iterator *)_it; }
+    //! Finds the item with key \em key
+    const_iterator find(const key_type &key) const
+    {
+      const mapvaluetype *r=triehead_find(key);
+      return !r ? end() : const_iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
+    }
+    using stlcontainer::get_allocator;
+    //! Inserts the item \em val
+    iterator insert(const value_type &val)
+    {
+      return triehead_insert(std::move(val));
+    }
+    //! Inserts the item \em val at position \em at
+    iterator insert(iterator at, const value_type &val)
+    {
+      iterator it=stlcontainer::insert(at, val);
+      it->trie_iterator=from_iterator(it);
+      trieinsert<trie_map_head, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, &(*it));
+      return it;
+    }
+    //! Inserts the items between \em first and \em last
+    template<class inputiterator> void insert(inputiterator first, inputiterator last)
+    {
+      iterator it=--end();
+      stlcontainer::insert(first, last);
+      for(; it!=end(); ++it)
+      {
+        it->trie_iterator=from_iterator(it);
+        trieinsert<trie_map_head, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<keyfunct> >(&triehead, &(*it));
+      }
+    }
+    //key_compare key_comp() const;
+    //iterator lower_bound(const key_type &key);
+    //const_iterator lower_bound(const key_type &key) const;
+    using stlcontainer::max_size;
+    reverse_iterator rbegin() { return reverse_iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, stlcontainer::begin()); }
+    const_reverse_iterator rbegin() const { return const_reverse_iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, stlcontainer::begin()); }
+    reverse_iterator rend() { return reverse_iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, stlcontainer::end()); }
+    const_reverse_iterator rend() const { return const_reverse_iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, stlcontainer::end()); }
+    using stlcontainer::size;
+    using stlcontainer::swap;
+    //iterator upper_bound(const key_type &key);
+    //const_iterator upper_bound(const key_type &key) const;
+    //value_compare value_comp() const;
+
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator!=(const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator<(const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator<=(const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator==(const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator>(const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
+    template<class keytype_, class type_, class keyfunct_, class allocator_, template<class> class nobblepolicy_, class stlcontainer_> friend bool operator>=(const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &a, const trie_multimap<keytype_, type_, keyfunct_, allocator_, nobblepolicy_, stlcontainer_> &b);
+
+    //! Constructs a trie_multimap. Has all the typical STL overloads
+    trie_multimap() : stlcontainer() { NEDTRIE_INIT(&triehead); }
+    explicit trie_multimap(const allocator &a) : stlcontainer(a) { NEDTRIE_INIT(&triehead); }
+    template<class okeytype, class otype, class oallocator> trie_multimap(const trie_multimap<okeytype, otype, oallocator> &o) : stlcontainer(o) { triehead_reindex(); }
+    template<class okeytype, class otype, class oallocator> trie_multimap &operator=(const trie_multimap<okeytype, otype, oallocator> &o) { *static_cast<stlcontainer *>(this)=static_cast<const stlcontainer &>(o); triehead_reindex(); return *this; }
+#ifdef HAVE_CPP0XRVALUEREFS
+	  template<class okeytype, class otype, class oallocator> trie_multimap(trie_multimap<okeytype, otype, oallocator> &&o) : stlcontainer(std::move(o))
+    {
+      memcpy(&triehead, &o.triehead, sizeof(triehead));
+    }
+    template<class okeytype, class otype, class oallocator> trie_multimap &operator=(trie_multimap<okeytype, otype, oallocator> &&o)
+    {
+      *static_cast<stlcontainer *>(this)=std::move(static_cast<stlcontainer &&>(o));
+      memcpy(&triehead, &o.triehead, sizeof(triehead));
+      return *this;
+    }
+#endif
+    template<class inputiterator> trie_multimap(inputiterator s, inputiterator e) : stlcontainer(s, e) { triehead_reindex(); }
+    template<class inputiterator> trie_multimap(inputiterator s, inputiterator e, const allocator &a) : stlcontainer(s, e, a) { triehead_reindex(); }
+  };
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator!=(const trie_multimap<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_multimap<keytype, type, allocator, keyfunct, nobblepolicy, stlcontainer> &b)
+  {
+    return static_cast<const stlcontainer &>(a)!=static_cast<const stlcontainer &>(b);
+  }
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator<(const trie_multimap<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_multimap<keytype, type, allocator, keyfunct, nobblepolicy, stlcontainer> &b)
+  {
+    return static_cast<const stlcontainer &>(a)<static_cast<const stlcontainer &>(b);
+  }
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator<=(const trie_multimap<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_multimap<keytype, type, allocator, keyfunct, nobblepolicy, stlcontainer> &b)
+  {
+    return static_cast<const stlcontainer &>(a)<=static_cast<const stlcontainer &>(b);
+  }
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator==(const trie_multimap<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_multimap<keytype, type, allocator, keyfunct, nobblepolicy, stlcontainer> &b)
+  {
+    return static_cast<const stlcontainer &>(a)==static_cast<const stlcontainer &>(b);
+  }
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator>(const trie_multimap<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_multimap<keytype, type, allocator, keyfunct, nobblepolicy, stlcontainer> &b)
+  {
+    return static_cast<const stlcontainer &>(a)>static_cast<const stlcontainer &>(b);
+  }
+  template<class keytype, class type, class keyfunct, class allocator, template<class> class nobblepolicy, class stlcontainer> bool operator>=(const trie_multimap<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &a, const trie_multimap<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> &b)
+  {
+    return static_cast<const stlcontainer &>(a)>=static_cast<const stlcontainer &>(b);
+  }
+
 } /* namespace */
 
 #ifdef _MSC_VER

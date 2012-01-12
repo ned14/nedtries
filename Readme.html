@@ -53,7 +53,7 @@ dt + dd {
 <body>
 
 <div style="text-align: center">
-	<h1 style="text-decoration: underline">nedtries v1.01 RC2 (?)</h1>
+	<h1 style="text-decoration: underline">nedtries v1.01 RC3 (?)</h1>
 	<h2 style="text-decoration: none;">by Niall Douglas</h2>
 	<p>Web site: <a href="http://www.nedprod.com/programs/portable/nedtries/">http://www.nedprod.com/programs/portable/nedtries/</a></p>
 	<hr /></div>
@@ -233,11 +233,13 @@ Start with nobble zeroes which tends to be right in most situations, and then
 use benchmarking your code to determine the correct setting.</p>
 <h2><a name="changelog0">C. C++ Usage:</a></h2>
 <p>C++ usage is even easier than the C macro usage thanks to nedtries::trie_map&lt;&gt; 
+and nedtries::trie_multimap&lt;&gt; 
 which is API compatible with the std::map&lt;&gt;, std::multimap&lt;&gt; and std::unordered_map&lt;&gt; 
-STL associative containers. trie_map&lt;&gt; 
+STL associative containers. trie_map&lt;&gt; and trie_multimap&lt;&gt; 
 makes full use of rvalue construction if either you are running on C++0x 
 according to the value of __cplusplus, or have 
-defined HAVE_CPP0X. In the general case, simply drop trie_map&lt;&gt; in where 
+defined HAVE_CPP0X. In the general case, simply drop trie_map&lt;&gt; or 
+trie_multimap&lt;&gt; in where 
 your STL associative container used to be and enjoy the speed benefits!</p>
 <p>Note that insertion and deletion speed in <strong>any</strong> STL container 
 is heavily bound by the speed of your memory allocator. You may wish to consider 
@@ -253,8 +255,8 @@ foomap[5]=Foo();
 foomap.erase(foomap.find(5));</pre>
 <p>You can of course iterate through them and do all the normal things you can 
 do with any STL container.</p>
-<h3>The trie_map&lt;&gt; Implementation</h3>
-<p>trie_map&lt;&gt; is actually a STL container <em>wrapper</em> rather than a proper STL 
+<h3>The trie_map&lt;&gt; and trie_multimap&lt;&gt; Implementation</h3>
+<p>trie_map&lt;&gt; and trie_multimap&lt;&gt; are actually a STL container <em>wrappers</em> rather than a proper STL 
 container in its own right i.e. it subclasses an existing STL container passing 
 through most of its API, but selectively overrides certain members. Its default 
 parameters point at std::list&lt;&gt; which is its most likely usage model for most 
@@ -284,8 +286,11 @@ Please contact ned Productions Consulting Ltd. for further details</a>.</p>
 	usage in the documentation spews warnings on GCC. Now compiles totally 
 	cleanly. Thanks to Fabian Holler for 
 	reporting this.</li>
-	<li><span class="gitcommit">[master xxxxxxx]</span> Added NEDTRIE_FOREACH_SAFE
+	<li><span class="gitcommit">[master 537c27b]</span> Added NEDTRIE_FOREACH_SAFE
 	and NEDTRIE_FOREACH_REVERSE_SAFE. Thanks to Stephen Hemminger for contributing this.</li>
+	<li><span class="gitcommit">[master xxxxxxx]</span> Fixed the fact that I 
+	had forgotten to implement iterators for trie_map&lt;&gt;. Also added 
+	trie_multimap&lt;&gt;. Thanks to Ned for pointing out the problem.</li>
 </ul>
 <h3>v1.01 RC1 (19th June 2011):</h3>
 <ul>
