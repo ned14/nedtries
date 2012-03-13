@@ -288,9 +288,15 @@ Please contact ned Productions Consulting Ltd. for further details</a>.</p>
 	reporting this.</li>
 	<li><span class="gitcommit">[master 537c27b]</span> Added NEDTRIE_FOREACH_SAFE
 	and NEDTRIE_FOREACH_REVERSE_SAFE. Thanks to Stephen Hemminger for contributing this.</li>
-	<li><span class="gitcommit">[master xxxxxxx]</span> Fixed the fact that I 
+	<li><span class="gitcommit">[master 4b12a3c]</span> Fixed the fact that I 
 	had forgotten to implement iterators for trie_map&lt;&gt;. Also added 
 	trie_multimap&lt;&gt;. Thanks to Ned for pointing out the problem.</li>
+	<li><span class="gitcommit">[master xxxxxxx]</span> Fixed issue #5 (Nfind does not
+	work in all cases). This was a serious bug, and the fact I missed it for so long
+	does not stand credit to me. I have added an exhaustive test case to ensure that
+	the logic of NFind is correct to test.c[pp] which performs four million random
+	iterations of NFind. I do apologise to all nedtries users, and my thanks to
+	smilingthax for reporting this.</li>
 </ul>
 <h3>v1.01 RC1 (19th June 2011):</h3>
 <ul>

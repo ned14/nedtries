@@ -1,5 +1,5 @@
 /* An in-place binary trie implementation for C and C++ aka. the
-ridiculously fast way of indexing stuff. (C) 2010 Niall Douglas.
+ridiculously fast way of indexing stuff. (C) 2010-2012 Niall Douglas.
 
 
 Boost Software License - Version 1.0 - August 17th, 2003
@@ -719,12 +719,12 @@ namespace nedtries {
     const type *RESTRICT node=0, *RESTRICT childnode, *RESTRICT ret=0;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
     size_t rkey=keyfunct(r), keybit, nodekey;
-    unsigned binbitidx;
+    unsigned binbitidx, rkeybitidx;
     int keybitset;
 
     if(!head->count) return 0;
     rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
-    binbitidx=nedtriebitscanr(rkey);
+    binbitidx=rkeybitidx=nedtriebitscanr(rkey);
     assert(binbitidx<NEDTRIE_INDEXBINS);
     do
     {
@@ -742,14 +742,20 @@ namespace nedtries {
       {
         nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
         nodekey=keyfunct(node);
+        /* If nodekey is a closer fit to search key, mark as best result so far */
         if(nodekey>=rkey && nodekey-rkey<retkey)
         {
           ret=node;
           if(!(retkey=nodekey-rkey)) goto end;
         }
+        /* Which child branch should we check? If we're in a bumped
+        bin always check lowest. */
         keybit>>=1;
-        keybitset=!!(rkey&keybit); 
+        keybitset=(binbitidx==rkeybitidx) && !!(rkey&keybit); 
         childnode=nodelink->trie_child[keybitset];
+        /* If no child and we were checking lowest, check highest */
+        if(!childnode && !keybitset)
+          childnode=nodelink->trie_child[1];
         if(!childnode)
           break;
       }
@@ -773,11 +779,11 @@ namespace nedtries {
   { \
     struct type *RESTRICT node=0, *RESTRICT childnode, *RESTRICT ret=0; \
     size_t rkey=keyfunct(r), keybit, nodekey; \
-    unsigned binbitidx; \
+    unsigned binbitidx, rkeybitidx; \
     int keybitset; \
  \
     if(!head->count) return 0; \
-    binbitidx=nedtriebitscanr(rkey); \
+    binbitidx=rkeybitidx=nedtriebitscanr(rkey); \
     assert(binbitidx<NEDTRIE_INDEXBINS); \
     do \
     { \
@@ -794,14 +800,20 @@ namespace nedtries {
       for(;;node=childnode) \
       { \
         nodekey=keyfunct(node); \
+        /* If nodekey is a closer fit to search key, mark as best result so far */ \
         if(nodekey>=rkey && nodekey-rkey<retkey) \
         { \
           ret=node; \
           if(!(retkey=nodekey-rkey)) goto end; \
         } \
+        /* Which child branch should we check? If we're in a bumped \
+        bin always check lowest. */ \
         keybit>>=1; \
-        keybitset=!!(rkey&keybit); \
+        keybitset=(binbitidx==rkeybitidx) && !!(rkey&keybit); \
         childnode=node->field.trie_child[keybitset]; \
+        /* If no child and we were checking lowest, check highest */ \
+        if(!childnode && !keybitset) \
+          childnode=node->field.trie_child[1]; \
         if(!childnode) \
           break; \
       } \
