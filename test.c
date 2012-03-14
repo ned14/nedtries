@@ -2,6 +2,9 @@
 #include <string.h>
 #include "nedtrie.h"
 
+#define RANDOM_NFIND_TEST_ITEMS 8
+#define RANDOM_NFIND_TEST_KEYMASK 0x1f
+
 /* Include the Mersenne twister */
 #if !defined(__cplusplus_cli) && (defined(_M_X64) || defined(__x86_64__) || (defined(_M_IX86) && _M_IX86_FP>=2) || (defined(__i386__) && defined(__SSE2__)))
 #define HAVE_SSE2 1
@@ -101,38 +104,60 @@ int main(void)
   /* To make sure the above never happens again */
   init_gen_rand(1234);
   {
-    int n;
-    for(n=0; n<(1<<22); n++)
+    int n, m;
+    foo_t items[RANDOM_NFIND_TEST_ITEMS];
+    const foo_t *items_sorted[RANDOM_NFIND_TEST_ITEMS];
+    for(n=0; n<(1<<16); n++)
     {
-      foo_t *max, *min;
+      const foo_t *max, *min;
+      int sorted;
       NEDTRIE_INIT(&footree);
-      a.key=gen_rand32() & 0xff;
-      NEDTRIE_INSERT(foo_tree_s, &footree, &a);
-      do { b.key=gen_rand32() & 0xff; } while(b.key==a.key);
-      NEDTRIE_INSERT(foo_tree_s, &footree, &b);
-      c.key=gen_rand32() & 0xff;
+      for(m=0; m<RANDOM_NFIND_TEST_ITEMS; m++)
+      {
+        items[m].key=gen_rand32() & RANDOM_NFIND_TEST_KEYMASK;
+        items_sorted[m]=&items[m];
+        NEDTRIE_INSERT(foo_tree_s, &footree, &items[m]);
+      }
+      do
+      {
+        sorted=1;
+        for(m=0; m<RANDOM_NFIND_TEST_ITEMS-1; m++)
+        {
+          if(items_sorted[m+1]->key<items_sorted[m]->key)
+          {
+            const foo_t *temp;
+            sorted=0;
+            temp=items_sorted[m];
+            items_sorted[m]=items_sorted[m+1];
+            items_sorted[m+1]=temp;
+          }
+        }
+      } while(!sorted);
+      min=items_sorted[0];
+      max=items_sorted[RANDOM_NFIND_TEST_ITEMS-1];
+
+      c.key=gen_rand32() & RANDOM_NFIND_TEST_KEYMASK;
       r=NEDTRIE_NFIND(foo_tree_s, &footree, &c);
-      max=(a.key > b.key) ? &a : &b;
-      min=(a.key < b.key) ? &a : &b;
-      if(c.key==a.key)
-      {
-        assert(r==&a);
-      }
-      else if(c.key==b.key)
-      {
-        assert(r==&b);
-      }
-      else if(c.key>a.key && c.key>b.key)
-      {
+      if(c.key>max->key)
+      { /* If search key is bigger than max key, it must always return zero */
         assert(r==0);
-      }
-      else if(c.key>min->key && c.key<max->key)
-      {
-        assert(r==max);
       }
       else
       {
-        assert(r==min);
+        assert(r!=0);
+        if(c.key!=r->key)
+        { /* If search key is smaller than min key, it must always return min */
+          if(c.key<min->key)
+          {
+            assert(r==min);
+          }
+          else
+          { /* Assert it correctly clamped to nearest */
+            for(m=0; m<RANDOM_NFIND_TEST_ITEMS && items_sorted[m]->key<c.key; m++);
+            assert(m!=RANDOM_NFIND_TEST_ITEMS);
+            assert(r==items_sorted[m]);
+          }
+        }
       }
     }
   }

@@ -714,7 +714,7 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieNfind(const trietype *RESTRICT head, const type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieCfind(const trietype *RESTRICT head, const type *RESTRICT r)
   {
     const type *RESTRICT node=0, *RESTRICT childnode, *RESTRICT ret=0;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
@@ -774,8 +774,8 @@ namespace nedtries {
 }
 #endif /* __cplusplus */
 #if NEDTRIEUSEMACROS
-#define NEDTRIE_GENERATE_NFIND(proto, name, type, field, keyfunct) \
-  proto INLINE struct type * name##_NEDTRIE_NFIND(struct name *RESTRICT head, struct type *RESTRICT r)		\
+#define NEDTRIE_GENERATE_CFIND(proto, name, type, field, keyfunct) \
+  proto INLINE struct type * name##_NEDTRIE_CFIND(struct name *RESTRICT head, struct type *RESTRICT r)		\
   { \
     struct type *RESTRICT node=0, *RESTRICT childnode, *RESTRICT ret=0; \
     size_t rkey=keyfunct(r), keybit, nodekey; \
@@ -829,10 +829,10 @@ namespace nedtries {
     return ret->field.trie_next ? ret->field.trie_next : ret; \
   }
 #else /* NEDTRIEUSEMACROS */
-#define NEDTRIE_GENERATE_NFIND(proto, name, type, field, keyfunct) \
-  proto INLINE struct type * name##_NEDTRIE_NFIND(struct name *RESTRICT head, struct type *RESTRICT r)		\
+#define NEDTRIE_GENERATE_CFIND(proto, name, type, field, keyfunct) \
+  proto INLINE struct type * name##_NEDTRIE_CFIND(struct name *RESTRICT head, struct type *RESTRICT r)		\
 { \
-  return nedtries::trieNfind<struct name, struct type, NEDTRIEFIELDOFFSET(type, field), keyfunct>(head, r); \
+  return nedtries::trieCfind<struct name, struct type, NEDTRIEFIELDOFFSET(type, field), keyfunct>(head, r); \
 }
 #endif /* NEDTRIEUSEMACROS */
 
@@ -1112,7 +1112,7 @@ namespace nedtries {
   NEDTRIE_GENERATE_REMOVE   (proto, name, type, field, keyfunct, nobblefunct) \
   NEDTRIE_GENERATE_FIND     (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_EXACTFIND(proto, name, type, field, keyfunct) \
-  NEDTRIE_GENERATE_NFIND    (proto, name, type, field, keyfunct) \
+  NEDTRIE_GENERATE_CFIND    (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_MINMAX   (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_PREV     (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_NEXT     (proto, name, type, field, keyfunct) \
@@ -1135,10 +1135,10 @@ namespace nedtries {
 \brief Returns true if there is an item with the same key and address as y in nedtrie x.
 */
 #define NEDTRIE_EXACTFIND(name, x, y)    name##_NEDTRIE_EXACTFIND(x, y)
-/*! \def NEDTRIE_NFIND
-\brief Finds the item with the nearest (larger or equal) key to y in nedtrie x.
+/*! \def NEDTRIE_CFIND
+\brief Finds an item with a larger or equal key to y in nedtrie x.
 */
-#define NEDTRIE_NFIND(name, x, y)        name##_NEDTRIE_NFIND(x, y)
+#define NEDTRIE_CFIND(name, x, y)        name##_NEDTRIE_CFIND(x, y)
 /*! \def NEDTRIE_PREV
 \brief Returns the item preceding y in nedtrie x.
 */
