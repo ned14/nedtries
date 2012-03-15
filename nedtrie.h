@@ -719,12 +719,12 @@ namespace nedtries {
     const type *RESTRICT node=0, *RESTRICT childnode, *RESTRICT ret=0;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
     size_t rkey=keyfunct(r), keybit, nodekey;
-    unsigned binbitidx, rkeybitidx;
+    unsigned binbitidx;
     int keybitset;
 
     if(!head->count) return 0;
     rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
-    binbitidx=rkeybitidx=nedtriebitscanr(rkey);
+    binbitidx=nedtriebitscanr(rkey);
     assert(binbitidx<NEDTRIE_INDEXBINS);
     do
     {
@@ -748,22 +748,41 @@ namespace nedtries {
           ret=node;
           if(!(retkey=nodekey-rkey)) goto end;
         }
-        /* Which child branch should we check? If we're in a bumped
-        bin always check lowest. */
+        /* Similarly for the children */
+        if(nodelink->trie_child[0])
+        {
+          nodekey=keyfunct(nodelink->trie_child[0]);
+          if(nodekey>=rkey && nodekey-rkey<retkey)
+          {
+            ret=nodelink->trie_child[0];
+            if(!(retkey=nodekey-rkey)) goto end;
+          }
+        }
+        if(nodelink->trie_child[1])
+        {
+          nodekey=keyfunct(nodelink->trie_child[1]);
+          if(nodekey>=rkey && nodekey-rkey<retkey)
+          {
+            ret=nodelink->trie_child[1];
+            if(!(retkey=nodekey-rkey)) goto end;
+          }
+        }
+        /* Which child branch should we check? */
         keybit>>=1;
-        keybitset=(binbitidx==rkeybitidx) && !!(rkey&keybit); 
+        keybitset=!!(rkey&keybit); 
         childnode=nodelink->trie_child[keybitset];
         /* If no child and we were checking lowest, check highest */
         if(!childnode && !keybitset)
           childnode=nodelink->trie_child[1];
-        if(!childnode)
-          break;
+        if(!childnode) break;
       }
       if(!ret)
       { /* If we didn't find any node bigger than rkey, bump up a bin
            and look for the smallest possible key in that */
         binbitidx++;
-        rkey=0;
+        /* From now on, always match lowest */
+        retkey+=rkey;
+        rkey=0; 
         continue;
       }
     } while(!ret);
@@ -838,7 +857,7 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieminmax(const trietype *RESTRICT head, unsigned dir)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieminmax(const trietype *RESTRICT head, const unsigned dir)
   {
     const type *RESTRICT node=0, *RESTRICT child;
     const TrieLink_t<type> *RESTRICT nodelink;
@@ -871,7 +890,7 @@ namespace nedtries {
 #endif /* __cplusplus */
 #if NEDTRIEUSEMACROS
 #define NEDTRIE_GENERATE_MINMAX(proto, name, type, field, keyfunct) \
-  proto INLINE struct type * name##_NEDTRIE_MINMAX(struct name *RESTRICT head, unsigned dir)		\
+  proto INLINE struct type * name##_NEDTRIE_MINMAX(struct name *RESTRICT head, const unsigned dir)		\
   { \
     struct type *RESTRICT node=0, *RESTRICT child; \
     unsigned bitidx; \
@@ -906,11 +925,10 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieprev(const trietype *RESTRICT head, const type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triebranchprev(const trietype *RESTRICT head, const type *RESTRICT r)
   {
     const type *RESTRICT node=0, *RESTRICT child;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
-    unsigned bitidx;
 
     rlink=(TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
     /* Am I a leaf off the tree? */
@@ -928,17 +946,40 @@ namespace nedtries {
       if(nodelink->trie_child[1]==r && nodelink->trie_child[0])
       {
         node=nodelink->trie_child[0];
-        goto returnbottomofchild;
+        nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
+        /* Follow child[1] preferentially downwards */
+        while((child=nodelink->trie_child[1] ? nodelink->trie_child[1] : nodelink->trie_child[0]))
+        {
+          node=child;
+          nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
+        }
       }
       /* If I was already on child[0] or there are no more children, return this node */
-      goto returnendleaf;
+      /* Now go to end leaf */
+      while(nodelink->trie_next)
+      {
+        node=nodelink->trie_next;
+        nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
+      }
+      return (type *) node;
     }
+    /* I have reached the top of my trie, no more on this branch */
+    return 0;
+  }
+
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieprev(const trietype *RESTRICT head, const type *RESTRICT r)
+  {
+    const type *RESTRICT node=0, *RESTRICT child;
+    const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
+    unsigned bitidx;
+
+    if((node=triebranchprev<trietype, type, fieldoffset, keyfunct>(head, r))) return (type *) node;
+    rlink=(TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
     /* I have reached the top of my trie, so on to prev bin */
     bitidx=(unsigned)(((size_t) rlink->trie_parent)>>2);
     assert(head->triebins[bitidx]==r);
     for(bitidx--; bitidx<NEDTRIE_INDEXBINS && !(node=head->triebins[bitidx]); bitidx--);
     if(bitidx>=NEDTRIE_INDEXBINS) return 0;
-  returnbottomofchild:
     nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
     /* Follow child[1] preferentially downwards */
     while((child=nodelink->trie_child[1] ? nodelink->trie_child[1] : nodelink->trie_child[0]))
@@ -946,7 +987,6 @@ namespace nedtries {
       node=child;
       nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
     }
-  returnendleaf:
     /* Now go to end leaf */
     while(nodelink->trie_next)
     {
@@ -1012,11 +1052,10 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trienext(const trietype *RESTRICT head, const type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triebranchnext(const trietype *RESTRICT head, const type *RESTRICT r)
   {
     const type *RESTRICT node;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
-    unsigned bitidx;
 
     rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
     /* Am I a leaf off the tree? */
@@ -1047,6 +1086,18 @@ namespace nedtries {
       r=node;
       rlink=nodelink;
     }
+    /* I have reached the top of my trie, no more on this branch */
+    return 0;
+  }
+
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trienext(const trietype *RESTRICT head, const type *RESTRICT r)
+  {
+    const type *RESTRICT node;
+    const TrieLink_t<type> *RESTRICT rlink;
+    unsigned bitidx;
+
+    if((node=triebranchnext<trietype, type, fieldoffset, keyfunct>(head, r))) return (type *) node;
+    rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
     /* I have reached the top of my trie, so on to next bin */
     bitidx=(unsigned)(((size_t) rlink->trie_parent)>>2);
     assert(head->triebins[bitidx]==r);
@@ -1102,6 +1153,50 @@ namespace nedtries {
 }
 #endif /* NEDTRIEUSEMACROS */
 
+#ifdef __cplusplus
+namespace nedtries {
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieNfind(const trietype *RESTRICT head, const type *RESTRICT r)
+  {
+    const type *RESTRICT node=0, *RESTRICT ret=trieCfind<trietype, type, fieldoffset, keyfunct>(head, r), *RESTRICT stop;
+    const TrieLink_t<type> *RESTRICT rlink;
+    size_t rkey=keyfunct(r), retkey, nodekey;
+
+    if(!ret) return 0;
+    if(!(retkey=keyfunct(ret)-rkey)) return (type *) ret;
+    /* Cfind basically does a find but if it doesn't find an exact match it early outs
+    with the closest result it found during the find. As nodes with children have a key
+    which is only guaranteed to be correct under its parent's constraints and has nothing
+    to do with its children, there may be a closer key in any of the children of the node
+    returned. Hence we iterate the local subbranch, looking for closer fits. */
+    rlink=(const TrieLink_t<type> *RESTRICT)((size_t) ret + fieldoffset);
+    stop=rlink->trie_parent;
+    for(node=triebranchnext<trietype, type, fieldoffset, keyfunct>(head, ret); node && node!=stop; node=triebranchnext<trietype, type, fieldoffset, keyfunct>(head, node))
+    {
+      nodekey=keyfunct(node);
+      /* If nodekey is a closer fit to search key, mark as best result so far */
+      if(nodekey>=rkey && nodekey-rkey<retkey)
+      {
+        ret=node;
+        retkey=nodekey-rkey;
+      }
+    }
+    return (type *) ret;
+  }
+}
+#endif /* __cplusplus */
+#if NEDTRIEUSEMACROS
+#define NEDTRIE_GENERATE_CFIND(proto, name, type, field, keyfunct) \
+  proto INLINE struct type * name##_NEDTRIE_CFIND(struct name *RESTRICT head, struct type *RESTRICT r)		\
+  { \
+  }
+#else /* NEDTRIEUSEMACROS */
+#define NEDTRIE_GENERATE_NFIND(proto, name, type, field, keyfunct) \
+  proto INLINE struct type * name##_NEDTRIE_NFIND(struct name *RESTRICT head, struct type *RESTRICT r)		\
+{ \
+  return nedtries::trieNfind<struct name, struct type, NEDTRIEFIELDOFFSET(type, field), keyfunct>(head, r); \
+}
+#endif /* NEDTRIEUSEMACROS */
+
 
 /*! \def NEDTRIE_GENERATE
 \brief Substitutes a set of nedtrie implementation function definitions specialised according to type.
@@ -1113,6 +1208,7 @@ namespace nedtries {
   NEDTRIE_GENERATE_FIND     (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_EXACTFIND(proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_CFIND    (proto, name, type, field, keyfunct) \
+  NEDTRIE_GENERATE_NFIND    (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_MINMAX   (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_PREV     (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_NEXT     (proto, name, type, field, keyfunct) \
@@ -1136,9 +1232,15 @@ namespace nedtries {
 */
 #define NEDTRIE_EXACTFIND(name, x, y)    name##_NEDTRIE_EXACTFIND(x, y)
 /*! \def NEDTRIE_CFIND
-\brief Finds an item with a larger or equal key to y in nedtrie x.
+\brief Finds an item with an equal key to y in nedtrie x, and if none equal then an item with a larger key.
+If the key is not equal, the returned item will be close to the next largest keyed item.
 */
 #define NEDTRIE_CFIND(name, x, y)        name##_NEDTRIE_CFIND(x, y)
+/*! \def NEDTRIE_NFIND
+\brief Finds an item with an equal key to y in nedtrie x, and if none equal then the item with the next
+largest key. If the key is not equal, the returned item is guaranteed to be the next largest keyed item.
+*/
+#define NEDTRIE_NFIND(name, x, y)        name##_NEDTRIE_NFIND(x, y)
 /*! \def NEDTRIE_PREV
 \brief Returns the item preceding y in nedtrie x.
 */
@@ -1165,7 +1267,8 @@ namespace nedtries {
 #define NEDTRIE_MAX(name, x)             name##_NEDTRIE_MINMAX(x, 1)
 
 /*! \def NEDTRIE_FOREACH
-\brief Substitutes a for loop which forward iterates into x all items in nedtrie head.
+\brief Substitutes a for loop which forward iterates into x all items in nedtrie head. Order of
+items is mostly in key order (enough that a bubble sort is efficient).
 */
 #define NEDTRIE_FOREACH(x, name, head)          \
 	for ((x) = NEDTRIE_MIN(name, head);           \
@@ -1174,14 +1277,17 @@ namespace nedtries {
 
 /*! \def NEDTRIE_FOREACH_SAFE
 \brief Substitutes a for loop which forward iterates into x all items in
-nedtrie head and is safe against removal of x. */
+nedtrie head and is safe against removal of x. Order of items is mostly
+in key order (enough that a bubble sort is efficient).
+*/
 #define NEDTRIE_FOREACH_SAFE(x, name, head, y)  \
 	for ((x) = NEDTRIE_MIN(name, head);           \
 	     (x) != NULL && ((y) = NEDTRIE_NEXT(name, head, x), 1); \
 	     (x) = (y))
 
 /*! \def NEDTRIE_FOREACH_REVERSE
-\brief Substitutes a for loop which forward iterates into x all items in nedtrie head.
+\brief Substitutes a for loop which reverse iterates into x all items in nedtrie head. Order of
+items is mostly inverse to key order (enough that a bubble sort is efficient).
 */
 #define NEDTRIE_FOREACH_REVERSE(x, name, head)  \
 	for ((x) = NEDTRIE_MAX(name, head);           \
@@ -1189,8 +1295,9 @@ nedtrie head and is safe against removal of x. */
 	     (x) = NEDTRIE_PREV(name, head, x))
 
 /*! \def NEDTRIE_FOREACH_REVERSE_SAFE
-\brief Substitutes a for loop which forward iterates into x all items in
-nedtrie head and is safe against removal of x.
+\brief Substitutes a for loop which reverse iterates into x all items in nedtrie head and is
+safe against removal of x. Order of items is mostly inverse to key order (enough that a bubble
+sort is efficient).
 */
 #define NEDTRIE_FOREACH_REVERSE_SAFE(x, name, head, y)  \
 	for ((x) = NEDTRIE_MAX(name, head);           \
