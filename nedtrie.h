@@ -738,17 +738,18 @@ namespace nedtries {
       bitidx=binbitidx;
       /* Avoid variable bit shifts where possible, their performance can suck */
       keybit=(size_t) 1<<bitidx;
+      nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
+      nodekey=keyfunct(node);
+      /* If nodekey is a closer fit to search key, mark as best result so far */
+      if(nodekey>=rkey && nodekey-rkey<retkey)
+      {
+        ret=node;
+        if(!(retkey=nodekey-rkey)) goto end;
+      }
       for(;;node=childnode)
       {
         nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
-        nodekey=keyfunct(node);
-        /* If nodekey is a closer fit to search key, mark as best result so far */
-        if(nodekey>=rkey && nodekey-rkey<retkey)
-        {
-          ret=node;
-          if(!(retkey=nodekey-rkey)) goto end;
-        }
-        /* Similarly for the children */
+        /* If a child is a closer fit to search key, mark as best result so far */
         if(nodelink->trie_child[0])
         {
           nodekey=keyfunct(nodelink->trie_child[0]);
@@ -925,7 +926,7 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triebranchprev(const trietype *RESTRICT head, const type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triebranchprev(const type *RESTRICT r, const TrieLink_t<type> **RESTRICT rlinkaddr)
   {
     const type *RESTRICT node=0, *RESTRICT child;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
@@ -964,6 +965,7 @@ namespace nedtries {
       return (type *) node;
     }
     /* I have reached the top of my trie, no more on this branch */
+    if(rlinkaddr) *rlinkaddr=rlink;
     return 0;
   }
 
@@ -973,8 +975,7 @@ namespace nedtries {
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
     unsigned bitidx;
 
-    if((node=triebranchprev<trietype, type, fieldoffset, keyfunct>(head, r))) return (type *) node;
-    rlink=(TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
+    if((node=triebranchprev<trietype, type, fieldoffset, keyfunct>(r, &rlink))) return (type *) node;
     /* I have reached the top of my trie, so on to prev bin */
     bitidx=(unsigned)(((size_t) rlink->trie_parent)>>2);
     assert(head->triebins[bitidx]==r);
@@ -1052,7 +1053,7 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triebranchnext(const trietype *RESTRICT head, const type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triebranchnext(const type *RESTRICT r, const TrieLink_t<type> **RESTRICT rlinkaddr)
   {
     const type *RESTRICT node;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
@@ -1087,6 +1088,7 @@ namespace nedtries {
       rlink=nodelink;
     }
     /* I have reached the top of my trie, no more on this branch */
+    if(rlinkaddr) *rlinkaddr=rlink;
     return 0;
   }
 
@@ -1096,11 +1098,9 @@ namespace nedtries {
     const TrieLink_t<type> *RESTRICT rlink;
     unsigned bitidx;
 
-    if((node=triebranchnext<trietype, type, fieldoffset, keyfunct>(head, r))) return (type *) node;
-    rlink=(const TrieLink_t<type> *RESTRICT)((size_t) r + fieldoffset);
+    if((node=triebranchnext<trietype, type, fieldoffset, keyfunct>(r, &rlink))) return (type *) node;
     /* I have reached the top of my trie, so on to next bin */
     bitidx=(unsigned)(((size_t) rlink->trie_parent)>>2);
-    assert(head->triebins[bitidx]==r);
     for(bitidx++; bitidx<NEDTRIE_INDEXBINS && !(node=head->triebins[bitidx]); bitidx++);
     if(bitidx>=NEDTRIE_INDEXBINS) return 0;
     return (type *) node;
@@ -1170,7 +1170,7 @@ namespace nedtries {
     returned. Hence we iterate the local subbranch, looking for closer fits. */
     rlink=(const TrieLink_t<type> *RESTRICT)((size_t) ret + fieldoffset);
     stop=rlink->trie_parent;
-    for(node=triebranchnext<trietype, type, fieldoffset, keyfunct>(head, ret); node && node!=stop; node=triebranchnext<trietype, type, fieldoffset, keyfunct>(head, node))
+    for(node=triebranchnext<trietype, type, fieldoffset, keyfunct>(ret, 0); node && node!=stop; node=triebranchnext<trietype, type, fieldoffset, keyfunct>(node, 0))
     {
       nodekey=keyfunct(node);
       /* If nodekey is a closer fit to search key, mark as best result so far */

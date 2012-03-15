@@ -54,7 +54,7 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
   REGION_INIT(&BENCHMARK_PREFIX(regiontree));
   for(m=0; m<ALLOCATIONS; m++)
   {
-    usCount insert=0, find1=0, find2=0, remove=0, iterate=0;
+    usCount insert=0, find1=0, find2=0, remove=0, iterate=0, nfind=0, cfind=0;
     int lmax=4*(nedtriebitscanr(ALLOCATIONS)-nedtriebitscanr(m)); /* Loop more when m is smaller */
     if(lmax<1) lmax=1;
     for(l=0; l<lmax; l++)
@@ -80,6 +80,28 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
         if(!r) abort();
         find2+=end-start-usCountOverhead;
       }
+#ifdef REGION_CFIND
+      for(n=0; n<m; n++)
+      {
+        BENCHMARK_PREFIX(region_node_t) t;
+        t.key=gen_rand32();
+        start=GetUsCount();
+        r=REGION_CFIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &t);
+        end=GetUsCount();
+        cfind+=end-start-usCountOverhead;
+      }
+#endif
+#ifdef REGION_NFIND
+      for(n=0; n<m; n++)
+      {
+        BENCHMARK_PREFIX(region_node_t) t;
+        t.key=gen_rand32();
+        start=GetUsCount();
+        r=REGION_NFIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &t);
+        end=GetUsCount();
+        nfind+=end-start-usCountOverhead;
+      }
+#endif
       for(r=REGION_MIN(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree)); r;)
       {
         start=GetUsCount();
@@ -100,6 +122,8 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
     ai->finds2[m]=(usCount)((double)find2/l);
     ai->removes[m]=(usCount)((double)remove/l);
     ai->iterates[m]=(usCount)((double)iterate/l);
+    ai->cfinds[m]=(usCount)((double)cfind/l);
+    ai->nfinds[m]=(usCount)((double)nfind/l);
     /*if(!(m & 127)) printf("At %d = %llu, %llu, %llu, %llu, %llu\n", m, ai->inserts[m], ai->finds1[m], ai->finds2[m], ai->removes[m], ai->iterates[m]);*/
   }
 }

@@ -100,7 +100,8 @@ static usCount usCountOverhead;
 typedef struct AlgorithmInfo_t
 {
   const char *name;
-  usCount inserts[ALLOCATIONS], finds1[ALLOCATIONS], finds2[ALLOCATIONS], removes[ALLOCATIONS], iterates[ALLOCATIONS];
+  int has_cfinds, has_nfinds;
+  usCount inserts[ALLOCATIONS], finds1[ALLOCATIONS], finds2[ALLOCATIONS], removes[ALLOCATIONS], iterates[ALLOCATIONS], cfinds[ALLOCATIONS], nfinds[ALLOCATIONS];
 } AlgorithmInfo;
 
 #define BENCHMARK_PREFIX(foo)                     nedtrie_##foo
@@ -112,6 +113,7 @@ typedef struct AlgorithmInfo_t
 #define REGION_INSERT(treetype, treevar, node)    NEDTRIE_INSERT(treetype, treevar, node)
 #define REGION_REMOVE(treetype, treevar, node)    NEDTRIE_REMOVE(treetype, treevar, node)
 #define REGION_FIND(treetype, treevar, node)      NEDTRIE_FIND(treetype, treevar, node)
+#define REGION_CFIND(treetype, treevar, node)     NEDTRIE_CFIND(treetype, treevar, node)
 #define REGION_NFIND(treetype, treevar, node)     NEDTRIE_NFIND(treetype, treevar, node)
 #define REGION_MAX(treetype, treevar)             NEDTRIE_MAX(treetype, treevar)
 #define REGION_MIN(treetype, treevar)             NEDTRIE_MIN(treetype, treevar)
@@ -131,6 +133,7 @@ typedef struct AlgorithmInfo_t
 #undef REGION_INSERT
 #undef REGION_REMOVE
 #undef REGION_FIND
+#undef REGION_CFIND
 #undef REGION_NFIND
 #undef REGION_MAX
 #undef REGION_MIN
@@ -148,6 +151,7 @@ typedef struct AlgorithmInfo_t
 #define REGION_INSERT(treetype, treevar, node)    RB_INSERT(treetype, treevar, node)
 #define REGION_REMOVE(treetype, treevar, node)    RB_REMOVE(treetype, treevar, node)
 #define REGION_FIND(treetype, treevar, node)      RB_FIND(treetype, treevar, node)
+/*#define REGION_CFIND(treetype, treevar, node)     fail*/
 #define REGION_NFIND(treetype, treevar, node)     RB_NFIND(treetype, treevar, node)
 #define REGION_MAX(treetype, treevar)             RB_MAX(treetype, treevar)
 #define REGION_MIN(treetype, treevar)             RB_MIN(treetype, treevar)
@@ -165,6 +169,7 @@ typedef struct AlgorithmInfo_t
 #undef REGION_INSERT
 #undef REGION_REMOVE
 #undef REGION_FIND
+#undef REGION_CFIND
 #undef REGION_NFIND
 #undef REGION_MAX
 #undef REGION_MIN
@@ -183,8 +188,9 @@ typedef struct AlgorithmInfo_t
 #define REGION_INSERT(treetype, treevar, node)    HASH_ADD(link, (*(treevar)), key, sizeof((node)->key), (node))
 #define REGION_REMOVE(treetype, treevar, node)    HASH_DELETE(link, (*(treevar)), (node))
 #define REGION_FIND(treetype, treevar, node)      HashFind(treevar, &(node)->key)
+/*#define REGION_CFIND(treetype, treevar, node)     fail
 #define REGION_NFIND(treetype, treevar, node)     fail
-#define REGION_MAX(treetype, treevar)             fail
+#define REGION_MAX(treetype, treevar)             fail*/
 #define REGION_MIN(treetype, treevar)             (*(treevar))
 #define REGION_NEXT(treetype, treevar, node)      ((treetype)((node)->link.next))
 #define REGION_PREV(treetype, treevar, node)      ((treetype)((node)->link.prev))
@@ -201,6 +207,7 @@ typedef struct AlgorithmInfo_t
 #undef REGION_INSERT
 #undef REGION_REMOVE
 #undef REGION_FIND
+#undef REGION_CFIND
 #undef REGION_NFIND
 #undef REGION_MAX
 #undef REGION_MIN
@@ -311,7 +318,7 @@ int main(void)
      hash_RunTest(algorithms+algorithmslen++);
   }
 #ifdef __cplusplus
-  if(1)
+  if(0)
   {
     using namespace std;
     algorithms[algorithmslen].name="trie_map<size_t>";
@@ -337,8 +344,8 @@ int main(void)
   if(!oh) abort();
   for(m=0; m<algorithmslen; m++)
   {
-    fprintf(oh, "\"Insert (%s)\",\"Find 0-N (%s)\",\"Find N (%s)\",\"Remove (%s)\",\"Iterate (%s)\"%c", algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, m==algorithmslen-1 ? '\n' : ',');
-    algorithms[m].inserts[0]=algorithms[m].finds1[0]=algorithms[m].finds2[0]=algorithms[m].removes[0]=algorithms[m].iterates[0]=1;
+    fprintf(oh, "\"Insert (%s)\",\"Find 0-N (%s)\",\"Find N (%s)\",\"Remove (%s)\",\"Iterate (%s)\",\"Close find (%s)\",\"Nearest find (%s)\"%c", algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, m==algorithmslen-1 ? '\n' : ',');
+    algorithms[m].inserts[0]=algorithms[m].finds1[0]=algorithms[m].finds2[0]=algorithms[m].removes[0]=algorithms[m].iterates[0]=algorithms[m].cfinds[0]=algorithms[m].nfinds[0]=1;
   }
   /* Max out the CPU to try to counter SpeedStep */
   {
@@ -350,7 +357,7 @@ int main(void)
     for(m=0; m<algorithmslen; m++)
     {
       int k, added=0;
-      double inserts=0, finds1=0, finds2=0, removes=0, iterates=0;
+      double inserts=0, finds1=0, finds2=0, removes=0, iterates=0, cfinds=0, nfinds=0;
       for(k=n-AVERAGE/2; k<=n+AVERAGE/2; k++)
       {
         if(k<0 || k>=ALLOCATIONS) continue;
@@ -359,14 +366,18 @@ int main(void)
         finds2+=pow(algorithms[m].finds2[k]/1000000000000.0, 1.0/3);
         removes+=pow(algorithms[m].removes[k]/1000000000000.0, 1.0/3);
         iterates+=pow(algorithms[m].iterates[k]/1000000000000.0, 1.0/3);
+        cfinds+=pow(algorithms[m].cfinds[k]/1000000000000.0, 1.0/3);
+        nfinds+=pow(algorithms[m].nfinds[k]/1000000000000.0, 1.0/3);
         added++;
       }
-      fprintf(oh, "%lf,%lf,%lf,%lf,%lf%c",
+      fprintf(oh, "%lf,%lf,%lf,%lf,%lf,%lf,%lf%c",
         n/(pow(inserts/added, 3)),
         n/(pow(finds1/added, 3)),
         n/(pow(finds2/added, 3)),
         n/(pow(removes/added, 3)),
         n/(pow(iterates/added, 3)),
+        n/(pow(cfinds/added, 3)),
+        n/(pow(nfinds/added, 3)),
         m==algorithmslen-1 ? '\n' : ',');
     }
   }

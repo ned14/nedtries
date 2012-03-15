@@ -2,8 +2,9 @@
 #include <string.h>
 #include "nedtrie.h"
 
-#define RANDOM_NFIND_TEST_ITEMS 8
-#define RANDOM_NFIND_TEST_KEYMASK 0x1f
+#define RANDOM_NFIND_TEST_KEYMASK 63
+#define RANDOM_NFIND_TEST_ITEMS ((RANDOM_NFIND_TEST_KEYMASK+1)/3)
+#define ITERATIONS (1<<16)
 
 /* Include the Mersenne twister */
 #if !defined(__cplusplus_cli) && (defined(_M_X64) || defined(__x86_64__) || (defined(_M_IX86) && _M_IX86_FP>=2) || (defined(__i386__) && defined(__SSE2__)))
@@ -104,20 +105,38 @@ int main(void)
   /* To make sure the above never happens again */
   init_gen_rand(1234);
   {
-    int n, m;
+    int n, m, promoted=0;
     foo_t items[RANDOM_NFIND_TEST_ITEMS];
     const foo_t *items_sorted[RANDOM_NFIND_TEST_ITEMS];
-    for(n=0; n<(1<<16); n++)
+    foo_t *r2;
+    for(n=0; n<ITERATIONS; n++)
     {
       const foo_t *max, *min;
       int sorted;
       NEDTRIE_INIT(&footree);
       for(m=0; m<RANDOM_NFIND_TEST_ITEMS; m++)
       {
-        items[m].key=gen_rand32() & RANDOM_NFIND_TEST_KEYMASK;
+        int o;
+        do
+        {
+          items[m].key=gen_rand32() & RANDOM_NFIND_TEST_KEYMASK;
+          for(o=0; o<m && items[o].key!=items[m].key; o++);
+        } while(o<m);
         items_sorted[m]=&items[m];
         NEDTRIE_INSERT(foo_tree_s, &footree, &items[m]);
       }
+      m=0;
+      NEDTRIE_FOREACH(r2, foo_tree_s, &footree)
+      {
+        m++;
+      }
+      assert(m==RANDOM_NFIND_TEST_ITEMS);
+      m=0;
+      NEDTRIE_FOREACH_REVERSE(r2, foo_tree_s, &footree)
+      {
+        m++;
+      }
+      assert(m==RANDOM_NFIND_TEST_ITEMS);
       do
       {
         sorted=1;
@@ -137,7 +156,9 @@ int main(void)
       max=items_sorted[RANDOM_NFIND_TEST_ITEMS-1];
 
       c.key=gen_rand32() & RANDOM_NFIND_TEST_KEYMASK;
+      r2=NEDTRIE_CFIND(foo_tree_s, &footree, &c);
       r=NEDTRIE_NFIND(foo_tree_s, &footree, &c);
+      promoted+=(r!=r2);
       if(c.key>max->key)
       { /* If search key is bigger than max key, it must always return zero */
         assert(r==0);
@@ -160,6 +181,8 @@ int main(void)
         }
       }
     }
+    printf("Nfind returned a different item to Cfind %d of %d (%f%%) iterations\n", promoted, ITERATIONS, 100.0*promoted/ITERATIONS);
+    getchar();
   }
   return 0;
 }
