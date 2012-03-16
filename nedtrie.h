@@ -29,6 +29,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include <assert.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #ifdef _MSC_VER
 /* Disable stupid warnings */
@@ -928,7 +929,7 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triebranchprev(const type *RESTRICT r, const TrieLink_t<type> **RESTRICT rlinkaddr)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triebranchprev(const type *RESTRICT r, const TrieLink_t<type> *RESTRICT *rlinkaddr)
   {
     const type *RESTRICT node=0, *RESTRICT child;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
@@ -1055,7 +1056,7 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triebranchnext(const type *RESTRICT r, const TrieLink_t<type> **RESTRICT rlinkaddr)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *triebranchnext(const type *RESTRICT r, const TrieLink_t<type> *RESTRICT *rlinkaddr)
   {
     const type *RESTRICT node;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
@@ -1780,6 +1781,18 @@ namespace nedtries {
       new(buffer) intern::keystore_t<key_type>(*(size_t *)"TRIEFINDKEYSTORE", key);
       return triefind<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<intern::findkeyfunct_t<keytype, type, mapvaluetype, keyfunct> > >(&triehead, (mapvaluetype *) buffer);
     }
+    const mapvaluetype *triehead_nfind(const key_type &key) const
+    { // Avoid a value_type construction using pure unmitigated evil
+      char buffer[sizeof(mapvaluetype)];
+      new(buffer) intern::keystore_t<key_type>(*(size_t *)"TRIEFINDKEYSTORE", key);
+      return trieNfind<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<intern::findkeyfunct_t<keytype, type, mapvaluetype, keyfunct> > >(&triehead, (mapvaluetype *) buffer);
+    }
+    const mapvaluetype *triehead_cfind(const key_type &key, int rounds) const
+    { // Avoid a value_type construction using pure unmitigated evil
+      char buffer[sizeof(mapvaluetype)];
+      new(buffer) intern::keystore_t<key_type>(*(size_t *)"TRIEFINDKEYSTORE", key);
+      return trieCfind<trie_map_head<mapvaluetype>, mapvaluetype, trie_fieldoffset, intern::to_Ckeyfunct<intern::findkeyfunct_t<keytype, type, mapvaluetype, keyfunct> > >(&triehead, (mapvaluetype *) buffer, rounds);
+    }
     iterator triehead_insert(const value_type &val)
     {
       iterator it=iterator(this, stlcontainer::insert(stlcontainer::end(), std::move(val)));
@@ -1872,6 +1885,22 @@ namespace nedtries {
     const_iterator find(const key_type &key) const
     {
       const mapvaluetype *r=triehead_find(key);
+      return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
+    }
+    //! Finds the nearest item with key \em key
+    iterator nfind(const key_type &key) { const_iterator it=static_cast<const trie_map *>(this)->nfind(key); void *_it=(void *) &it; return *(iterator *)_it; }
+    //! Finds the nearest item with key \em key
+    const_iterator nfind(const key_type &key) const
+    {
+      const mapvaluetype *r=triehead_nfind(key);
+      return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
+    }
+    //! Finds the nearest item with key \em key
+    iterator cfind(const key_type &key, int rounds=INT_MAX) { const_iterator it=static_cast<const trie_map *>(this)->cfind(key, rounds); void *_it=(void *) &it; return *(iterator *)_it; }
+    //! Finds the nearest item with key \em key
+    const_iterator nfind(const key_type &key, int rounds=INT_MAX) const
+    {
+      const mapvaluetype *r=triehead_cfind(key, rounds);
       return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
     }
     using stlcontainer::get_allocator;
