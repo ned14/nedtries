@@ -46,6 +46,20 @@ dt + dd {
 	font-family: "Courier New", Courier, monospace;
 	font-size: smaller;
 }
+table {
+    border: 0;
+}
+th {
+	text-align: center;
+}
+td {
+    border-color: lightgray;
+	border-style: solid;
+	border-width: 1px;
+}
+td ul {
+	margin-right: 2em;
+}
 -->
 </style>
 </head>
@@ -53,7 +67,7 @@ dt + dd {
 <body>
 
 <div style="text-align: center">
-	<h1 style="text-decoration: underline">nedtries v1.01 RC3 (?)</h1>
+	<h1 style="text-decoration: underline">nedtries v1.02 RC1 (?)</h1>
 	<h2 style="text-decoration: none;">by Niall Douglas</h2>
 	<p>Web site: <a href="http://www.nedprod.com/programs/portable/nedtries/">http://www.nedprod.com/programs/portable/nedtries/</a></p>
 	<hr /></div>
@@ -107,7 +121,34 @@ you are not already using bitwise tries then you probably ought to be!</strong>
 Read on for how to add them to your software.</p>
 <div><center>
 <img alt="Bitwise Trees Scaling" height="25%" src="images/BitwiseTreesScaling.png" width="25%" /><img alt="Red Black Trees Scaling" height="25%" src="images/RedBlackTreesScaling.png" width="25%" /><img alt="Hash Table Scaling" height="25%" src="images/HashTableScaling.png" width="25%" /></center></div>
-<h2><a name="implementation">A. Implementation:</a></h2>
+<h2><a name="breakingchanges">A. Breaking changes since previous versions:</a></h2>
+<p>In v1.02 a breaking change in what NEDTRIE_NFIND means and does was 
+introduced, and the version was bumped to v1.02 precisely to warn users of the 
+change. The problem in v1.01 and earlier was that I had incorrectly 
+documented what NEDTRIE_NFIND does: I said that it found the nearest item to the 
+search term when this was patently untrue (thanks to smilingthax for reporting 
+this). In fact, NEDTRIE_NFIND used to return a matching item, if there was one, 
+but if there was no matching item, it returned <em>any</em> larger item rather 
+than <em>the</em> next largest item. I do apologise to the users of nedtries for 
+this documentation error, and for the lost productivity it surely must have 
+caused some of you.</p>
+<p>The good news is that NEDTRIE_NFIND now guarantees to return the next largest 
+item, and it therefore now matches BSD's red-black Nfind. The bad news is that 
+bitwise tries are really not ideal for guaranteed nearest matching, and 
+performance is terrible as you can see via the purple line in the graphs above. 
+If you can put up with non-guaranteed nearest matching, NEDTRIE_CFIND offers 
+much better performance. NEDTRIE_CFIND takes a <em>rounds</em> parameter which 
+indicates how hard the routine should try to return a close item: rounds=0 means 
+to return the first item encountered which is equal or larger to search key, 
+rounds=1 means try one level down, rounds=2 means try two levels down and so on. 
+rounds=INT_MAX means try hardest, and guarantees that any item with a matching 
+key will be found and that if not matching, any item returned will have a very 
+close key (those not necessarily the closest).</p>
+<p>For a summary of the differences between Nfind and Cfind,
+<a href="#nfindversuscfind">see this useful table</a>. Note that if you just 
+want any item with a key larger or equal to the search key, 
+NEDTRIE_CFIND(rounds=0|1|2) is extremely swift.</p>
+<h2><a name="implementation">B. Implementation:</a></h2>
 <p>The source makes use of C macros on C and C++ templates on C++ - therefore, 
 unlike typical C-macro-based algorithms it is easy to debug and in fact, the improved 
 metadata specified by the templates lets a modern C++ compiler produce 5-15% 
@@ -168,7 +209,7 @@ Windows 7 x64 machine. They should be representative of performance on modern
 hardware - though note that the Intel Atom has a 17 cycle nedtriebitscanr() 
 which is the only modern CPU to be so slow. See
 <a href="http://gmplib.org/~tege/x86-timing.pdf">http://gmplib.org/~tege/x86-timing.pdf</a> for x86 and x64 instruction timings.</p>
-<h2><a name="c-usage">B. C Macro Usage:</a></h2>
+<h2><a name="c-usage">C. C Macro Usage:</a></h2>
 <p>Usage via C macros follows the FreeBSD <a href="rbtree.h">rbtree.h</a> 
 format. See the enclosed <a href="nedtries.chm">nedtries.chm</a>  for detailed 
 API documentation. Here is some sample code which can be compiled cleanly using <tt>gcc -Wall -pedantic 
@@ -218,7 +259,7 @@ int main(void)
 <p>There isn&#39;t really much more to it - if you want to throw away the trie, 
 simply NEDTRIE_INIT() its head. As no dynamic memory is involved, nothing is 
 lost.</p>
-<h3>Choosing The Nobble Function</h3>
+<h3><a name="choosingthenobblefunction">Choosing The Nobble Function</a></h3>
 <p>I should mention what the nobble function is for: you have three default 
 choices, NEDTRIE_NOBBLEZEROS, NEDTRIE_NOBBLEONES and NEDTRIE_NOBBLEEQUALLY 
 though you can of course also define your own. The nobble function contributes 
@@ -231,7 +272,47 @@ then you should nobble equally.</p>
 <p>Sounds complicated? In fact it&#39;s very easy if you simply use trial &amp; error. 
 Start with nobble zeroes which tends to be right in most situations, and then 
 use benchmarking your code to determine the correct setting.</p>
-<h2><a name="changelog0">C. C++ Usage:</a></h2>
+<h3><a name="nfindversuscfind">Nfind versus Cfind</a></h3>
+<p>Where the BSD red-black tree implementation has RB_NFIND() for finding items 
+which are nearest to the search term, nedtries provides NEDTRIE_CFIND() and 
+NEDTRIE_NFIND(). What's the difference? Here's a quick table:</p>
+<table style="width: 80%; position:relative; margin-left:auto; margin-right:auto;">
+	<tr>
+		<th style="width: 33%" >Nfind</th>
+		<th style="width: 33%" >Cfind(rounds=INT_MAX)</th>
+		<th style="width: 33%" >Cfind(rounds=0|1)</th>
+	</tr>
+	<tr>
+		<td style="width: 33%" valign="top">
+		<ul>
+			<li>Returns an exact match if there is an exact match in the trie</li>
+			<li>If there is not an exact match, guarantees that the item 
+			returned is the next largest</li>
+			<li>Complexity: Somewhat worse than O(log N), as must perform a O(log N) 
+			search of the subtree returned by Cfind(rounds=INT_MAX).</li>
+		</ul>
+		</td>
+		<td style="width: 33%" valign="top">
+		<ul>
+			<li>Returns an exact match if there is an exact match in the trie</li>
+			<li>If there is not an exact match, item returned will be very close 
+			to the next largest</li>
+			<li>Complexity: Identical to Find i.e. O(1/D<sub>KL</sub>(key||average key)). 
+			However because it does much more work, it is approximately four 
+			times slower than a straight find.</li>
+		</ul>
+		</td>
+		<td style="width: 33%" valign="top">
+		<ul>
+			<li>Returns an item with a key no larger than the next power of two 
+			multiple higher than the search key</li>
+			<li>Complexity: approximately O(2^rounds) for small numbers of 
+			rounds, so approaches O(1).</li>
+		</ul>
+		</td>
+	</tr>
+</table>
+<h2><a name="cpp-usage">D. C++ Usage:</a></h2>
 <p>C++ usage is even easier than the C macro usage thanks to nedtries::trie_map&lt;&gt; 
 and nedtries::trie_multimap&lt;&gt; 
 which is API compatible with the std::map&lt;&gt;, std::multimap&lt;&gt; and std::unordered_map&lt;&gt; 
@@ -275,8 +356,13 @@ associative container for submission to
 libraries</a> (and thereafter into the standard C++ language itself), I would be 
 very pleased to oblige. <a href="http://www.nedproductions.biz/" target="_blank">
 Please contact ned Productions Consulting Ltd. for further details</a>.</p>
-<h2><a name="changelog">D. ChangeLog:</a></h2>
-<h3>v1.01 RC2 (?):</h3>
+<h2><a name="changelog">E. ChangeLog:</a></h2>
+<h3>v1.02 RC1 (?):</h3>
+<ul>
+	<li><span class="gitcommit">[master xxxxxxx]</span> Due to the breaking 
+	change in what NEDTRIE_NFIND means and does, bumped version number.</li>
+</ul>
+<h3>v1.01 RC2 (unreleased):</h3>
 <ul>
 	<li><span class="gitcommit">[master bd6f3e5]</span> Fixed misc documentation errors.</li>
 	<li><span class="gitcommit">[master 79efb3a]</span> Fixed really obvious 
@@ -291,12 +377,7 @@ Please contact ned Productions Consulting Ltd. for further details</a>.</p>
 	<li><span class="gitcommit">[master 4b12a3c]</span> Fixed the fact that I 
 	had forgotten to implement iterators for trie_map&lt;&gt;. Also added 
 	trie_multimap&lt;&gt;. Thanks to Ned for pointing out the problem.</li>
-	<li><span class="gitcommit">[master xxxxxxx]</span> Fixed issue #5 (Nfind does not
-	work in all cases). This was a serious bug, and the fact I missed it for so long
-	does not stand credit to me. I have added an exhaustive test case to ensure that
-	the logic of NFind is correct to test.c[pp] which performs four million random
-	iterations of NFind. I do apologise to all nedtries users, and my thanks to
-	smilingthax for reporting this.</li>
+	<li><span class="gitcommit">[master 8b53224]</span> Renamed Nfind to Cfind.</li>
 </ul>
 <h3>v1.01 RC1 (19th June 2011):</h3>
 <ul>

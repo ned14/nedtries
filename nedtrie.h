@@ -714,7 +714,7 @@ namespace nedtries {
 
 #ifdef __cplusplus
 namespace nedtries {
-  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieCfind(const trietype *RESTRICT head, const type *RESTRICT r)
+  template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieCfind(const trietype *RESTRICT head, const type *RESTRICT r, int rounds)
   {
     const type *RESTRICT node=0, *RESTRICT childnode, *RESTRICT ret=0;
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
@@ -744,8 +744,9 @@ namespace nedtries {
       if(nodekey>=rkey && nodekey-rkey<retkey)
       {
         ret=node;
-        if(!(retkey=nodekey-rkey)) goto end;
+        retkey=nodekey-rkey;
       }
+      if(rounds--<=0 && ret) return (type *) ret;
       for(;;node=childnode)
       {
         nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) node + fieldoffset);
@@ -756,7 +757,7 @@ namespace nedtries {
           if(nodekey>=rkey && nodekey-rkey<retkey)
           {
             ret=nodelink->trie_child[0];
-            if(!(retkey=nodekey-rkey)) goto end;
+            retkey=nodekey-rkey;
           }
         }
         if(nodelink->trie_child[1])
@@ -765,9 +766,10 @@ namespace nedtries {
           if(nodekey>=rkey && nodekey-rkey<retkey)
           {
             ret=nodelink->trie_child[1];
-            if(!(retkey=nodekey-rkey)) goto end;
+            retkey=nodekey-rkey;
           }
         }
+        if(rounds--<=0 && ret) return (type *) ret;
         /* Which child branch should we check? */
         keybit>>=1;
         keybitset=!!(rkey&keybit); 
@@ -850,9 +852,9 @@ namespace nedtries {
   }
 #else /* NEDTRIEUSEMACROS */
 #define NEDTRIE_GENERATE_CFIND(proto, name, type, field, keyfunct) \
-  proto INLINE struct type * name##_NEDTRIE_CFIND(struct name *RESTRICT head, struct type *RESTRICT r)		\
+  proto INLINE struct type * name##_NEDTRIE_CFIND(struct name *RESTRICT head, struct type *RESTRICT r, int rounds)		\
 { \
-  return nedtries::trieCfind<struct name, struct type, NEDTRIEFIELDOFFSET(type, field), keyfunct>(head, r); \
+  return nedtries::trieCfind<struct name, struct type, NEDTRIEFIELDOFFSET(type, field), keyfunct>(head, r, rounds); \
 }
 #endif /* NEDTRIEUSEMACROS */
 
@@ -1157,7 +1159,7 @@ namespace nedtries {
 namespace nedtries {
   template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieNfind(const trietype *RESTRICT head, const type *RESTRICT r)
   {
-    const type *RESTRICT node=0, *RESTRICT ret=trieCfind<trietype, type, fieldoffset, keyfunct>(head, r), *RESTRICT stop;
+    const type *RESTRICT node=0, *RESTRICT ret=trieCfind<trietype, type, fieldoffset, keyfunct>(head, r, INT_MAX), *RESTRICT stop;
     const TrieLink_t<type> *RESTRICT rlink;
     size_t rkey=keyfunct(r), retkey, nodekey;
 
@@ -1185,8 +1187,8 @@ namespace nedtries {
 }
 #endif /* __cplusplus */
 #if NEDTRIEUSEMACROS
-#define NEDTRIE_GENERATE_CFIND(proto, name, type, field, keyfunct) \
-  proto INLINE struct type * name##_NEDTRIE_CFIND(struct name *RESTRICT head, struct type *RESTRICT r)		\
+#define NEDTRIE_GENERATE_NFIND(proto, name, type, field, keyfunct) \
+  proto INLINE struct type * name##_NEDTRIE_NFIND(struct name *RESTRICT head, struct type *RESTRICT r)		\
   { \
   }
 #else /* NEDTRIEUSEMACROS */
@@ -1232,10 +1234,13 @@ namespace nedtries {
 */
 #define NEDTRIE_EXACTFIND(name, x, y)    name##_NEDTRIE_EXACTFIND(x, y)
 /*! \def NEDTRIE_CFIND
-\brief Finds an item with an equal key to y in nedtrie x, and if none equal then an item with a larger key.
-If the key is not equal, the returned item will be close to the next largest keyed item.
+\brief Performs \em rounds number of attempts to find an item with an equal key to y in nedtrie x, and
+if none equal then the closest item with a larger key. Always returns a larger key if there is a larger
+key in the trie, if there isn't it returns zero. Think of rounds as how closely you want the find to fit
+the requested key, so \c INT_MAX means "as close as possible". Note that Cfind does NOT guarantee that
+the item returned is the next largest keyed item, use Nfind for that.
 */
-#define NEDTRIE_CFIND(name, x, y)        name##_NEDTRIE_CFIND(x, y)
+#define NEDTRIE_CFIND(name, x, y, rounds) name##_NEDTRIE_CFIND(x, y, rounds)
 /*! \def NEDTRIE_NFIND
 \brief Finds an item with an equal key to y in nedtrie x, and if none equal then the item with the next
 largest key. If the key is not equal, the returned item is guaranteed to be the next largest keyed item.
