@@ -29,7 +29,7 @@ DEALINGS IN THE SOFTWARE.
 
 #include <assert.h>
 #include <stdlib.h>
-#include <limits.h>
+#include <limits.h> /* For INT_MAX */
 
 #ifdef _MSC_VER
 /* Disable stupid warnings */
@@ -790,7 +790,6 @@ namespace nedtries {
         continue;
       }
     } while(!ret);
-  end:
     nodelink=(const TrieLink_t<type> *RESTRICT)((size_t) ret + fieldoffset);
     return nodelink->trie_next ? nodelink->trie_next : (type *) ret;
   }
@@ -798,15 +797,15 @@ namespace nedtries {
 #endif /* __cplusplus */
 #if NEDTRIEUSEMACROS
 #define NEDTRIE_GENERATE_CFIND(proto, name, type, field, keyfunct) \
-  proto INLINE struct type * name##_NEDTRIE_CFIND(struct name *RESTRICT head, struct type *RESTRICT r)		\
+  proto INLINE struct type * name##_NEDTRIE_CFIND(struct name *RESTRICT head, struct type *RESTRICT r, int rounds)		\
   { \
     struct type *RESTRICT node=0, *RESTRICT childnode, *RESTRICT ret=0; \
     size_t rkey=keyfunct(r), keybit, nodekey; \
-    unsigned binbitidx, rkeybitidx; \
+    unsigned binbitidx; \
     int keybitset; \
  \
     if(!head->count) return 0; \
-    binbitidx=rkeybitidx=nedtriebitscanr(rkey); \
+    binbitidx=nedtriebitscanr(rkey); \
     assert(binbitidx<NEDTRIE_INDEXBINS); \
     do \
     { \
@@ -820,35 +819,55 @@ namespace nedtries {
       bitidx=binbitidx; \
       /* Avoid variable bit shifts where possible, their performance can suck */ \
       keybit=(size_t) 1<<bitidx; \
+      nodekey=keyfunct(node); \
+      /* If nodekey is a closer fit to search key, mark as best result so far */ \
+      if(nodekey>=rkey && nodekey-rkey<retkey) \
+      { \
+        ret=node; \
+        retkey=nodekey-rkey; \
+      } \
+      if(rounds--<=0 && ret) return ret; \
       for(;;node=childnode) \
       { \
-        nodekey=keyfunct(node); \
-        /* If nodekey is a closer fit to search key, mark as best result so far */ \
-        if(nodekey>=rkey && nodekey-rkey<retkey) \
+        /* If a child is a closer fit to search key, mark as best result so far */ \
+        if(node->field.trie_child[0]) \
         { \
-          ret=node; \
-          if(!(retkey=nodekey-rkey)) goto end; \
+          nodekey=keyfunct(node->field.trie_child[0]); \
+          if(nodekey>=rkey && nodekey-rkey<retkey) \
+          { \
+            ret=node->field.trie_child[0]; \
+            retkey=nodekey-rkey; \
+          } \
         } \
-        /* Which child branch should we check? If we're in a bumped \
-        bin always check lowest. */ \
+        if(node->field.trie_child[1]) \
+        { \
+          nodekey=keyfunct(node->field.trie_child[1]); \
+          if(nodekey>=rkey && nodekey-rkey<retkey) \
+          { \
+            ret=node->field.trie_child[1]; \
+            retkey=nodekey-rkey; \
+          } \
+        } \
+        if(rounds--<=0 && ret) return ret; \
+        /* Which child branch should we check? */ \
         keybit>>=1; \
-        keybitset=(binbitidx==rkeybitidx) && !!(rkey&keybit); \
+        keybitset=!!(rkey&keybit); \
         childnode=node->field.trie_child[keybitset]; \
         /* If no child and we were checking lowest, check highest */ \
         if(!childnode && !keybitset) \
           childnode=node->field.trie_child[1]; \
-        if(!childnode) \
-          break; \
+        if(!childnode) break; \
       } \
       if(!ret) \
       { /* If we didn't find any node bigger than rkey, bump up a bin \
            and look for the smallest possible key in that */ \
         binbitidx++; \
+        /* From now on, always match lowest */ \
+        retkey+=rkey; \
         rkey=0; \
         continue; \
       } \
     } while(!ret); \
-  end: \
     return ret->field.trie_next ? ret->field.trie_next : ret; \
   }
 #else /* NEDTRIEUSEMACROS */
@@ -1003,42 +1022,57 @@ namespace nedtries {
 #endif /* __cplusplus */
 #if NEDTRIEUSEMACROS
 #define NEDTRIE_GENERATE_PREV(proto, name, type, field, keyfunct) \
+  proto INLINE struct type * name##_NEDTRIE_BRANCHPREV(struct type *RESTRICT *RESTRICT r)		\
+  { \
+    struct type *RESTRICT node=0, *RESTRICT child; \
+\
+    /* Am I a leaf off the tree? */ \
+    if((*r)->field.trie_prev) \
+    { \
+      assert(!(*r)->field.trie_parent); \
+      return (*r)->field.trie_prev; \
+    } \
+    /* Trace up my parents to prev branch */ \
+    while(((size_t) (*r)->field.trie_parent & 3)!=3) \
+    { \
+      node=(*r)->field.trie_parent; \
+      /* If I was on child[1] and there is a child[0], go to bottom of child[0] */ \
+      if(node->field.trie_child[1]==(*r) && node->field.trie_child[0]) \
+      { \
+        node=node->field.trie_child[0]; \
+        /* Follow child[1] preferentially downwards */ \
+        while((child=node->field.trie_child[1] ? node->field.trie_child[1] : node->field.trie_child[0])) \
+        { \
+          node=child; \
+        } \
+      } \
+      /* If I was already on child[0] or there are no more children, return this node */ \
+      /* Now go to end leaf */ \
+      while(node->field.trie_next) \
+      { \
+        node=node->field.trie_next; \
+      } \
+      return node; \
+    } \
+    /* I have reached the top of my trie, no more on this branch */ \
+    return 0; \
+  } \
   proto INLINE struct type * name##_NEDTRIE_PREV(struct name *RESTRICT head, struct type *RESTRICT r)		\
   { \
     struct type *RESTRICT node=0, *RESTRICT child; \
     unsigned bitidx; \
 \
-    /* Am I a leaf off the tree? */ \
-    if(r->field.trie_prev) \
-    { \
-      assert(!r->field.trie_parent); \
-      return r->field.trie_prev; \
-    } \
-    /* Trace up my parents to prev branch */ \
-    while(((size_t) r->field.trie_parent & 3)!=3) \
-    { \
-      node=r->field.trie_parent; \
-      /* If I was on child[1] and there is a child[0], go to bottom of child[0] */ \
-      if(node->field.trie_child[1]==r && node->field.trie_child[0]) \
-      { \
-        node=node->field.trie_child[0]; \
-        goto returnbottomofchild; \
-      } \
-      /* If I was already on child[0] or there are no more children, return this node */ \
-      goto returnendleaf; \
-    } \
+    if((node=name##_NEDTRIE_BRANCHPREV(&r))) return node; \
     /* I have reached the top of my trie, so on to prev bin */ \
     bitidx=(unsigned)(((size_t) r->field.trie_parent)>>2); \
     assert(head->triebins[bitidx]==r); \
     for(bitidx--; bitidx<NEDTRIE_INDEXBINS && !(node=head->triebins[bitidx]); bitidx--); \
     if(bitidx>=NEDTRIE_INDEXBINS) return 0; \
-  returnbottomofchild: \
     /* Follow child[1] preferentially downwards */ \
     while((child=node->field.trie_child[1] ? node->field.trie_child[1] : node->field.trie_child[0])) \
     { \
       node=child; \
     } \
-  returnendleaf: \
     /* Now go to end leaf */ \
     while(node->field.trie_next) \
     { \
@@ -1112,35 +1146,42 @@ namespace nedtries {
 #endif /* __cplusplus */
 #if NEDTRIEUSEMACROS
 #define NEDTRIE_GENERATE_NEXT(proto, name, type, field, keyfunct) \
+  proto INLINE struct type * name##_NEDTRIE_BRANCHNEXT(struct type *RESTRICT *RESTRICT r)		\
+  { \
+    struct type *RESTRICT node; \
+\
+    /* Am I a leaf off the tree? */ \
+    if((*r)->field.trie_next) \
+      return (*r)->field.trie_next; \
+    /* If I am the end leaf off a tree, put me back at my tree node */ \
+    while(!(*r)->field.trie_parent) \
+    { \
+      (*r)=(*r)->field.trie_prev; \
+    } \
+    /* Follow my children, preferring child[0] */ \
+    if((node=(*r)->field.trie_child[0] ? (*r)->field.trie_child[0] : (*r)->field.trie_child[1])) \
+    { \
+      assert(node->field.trie_parent==(*r)); \
+      return node; \
+    } \
+    /* Trace up my parents to next branch */ \
+    while(((size_t) (*r)->field.trie_parent & 3)!=3) \
+    { \
+      node=(*r)->field.trie_parent; \
+      if(node->field.trie_child[0]==(*r) && node->field.trie_child[1]) \
+      { \
+        return node->field.trie_child[1]; \
+      } \
+      (*r)=node; \
+    } \
+    return 0; \
+  } \
   proto INLINE struct type * name##_NEDTRIE_NEXT(struct name *RESTRICT head, struct type *RESTRICT r)		\
   { \
     struct type *RESTRICT node; \
     unsigned bitidx; \
 \
-    /* Am I a leaf off the tree? */ \
-    if(r->field.trie_next) \
-      return r->field.trie_next; \
-    /* If I am the end leaf off a tree, put me back at my tree node */ \
-    while(!r->field.trie_parent) \
-    { \
-      r=r->field.trie_prev; \
-    } \
-    /* Follow my children, preferring child[0] */ \
-    if((node=r->field.trie_child[0] ? r->field.trie_child[0] : r->field.trie_child[1])) \
-    { \
-      assert(node->field.trie_parent==r); \
-      return node; \
-    } \
-    /* Trace up my parents to next branch */ \
-    while(((size_t) r->field.trie_parent & 3)!=3) \
-    { \
-      node=r->field.trie_parent; \
-      if(node->field.trie_child[0]==r && node->field.trie_child[1]) \
-      { \
-        return node->field.trie_child[1]; \
-      } \
-      r=node; \
-    } \
+    if((node=name##_NEDTRIE_BRANCHNEXT(&r))) return node; \
     /* I have reached the top of my trie, so on to next bin */ \
     bitidx=(unsigned)(((size_t) r->field.trie_parent)>>2); \
     assert(head->triebins[bitidx]==r); \
@@ -1191,6 +1232,28 @@ namespace nedtries {
 #define NEDTRIE_GENERATE_NFIND(proto, name, type, field, keyfunct) \
   proto INLINE struct type * name##_NEDTRIE_NFIND(struct name *RESTRICT head, struct type *RESTRICT r)		\
   { \
+    struct type *RESTRICT node=0, *RESTRICT ret=name##_NEDTRIE_CFIND(head, r, INT_MAX), *RESTRICT stop; \
+    size_t rkey=keyfunct(r), retkey, nodekey; \
+    \
+    if(!ret) return 0; \
+    if(!(retkey=keyfunct(ret)-rkey)) return ret; \
+    /* Cfind basically does a find but if it doesn't find an exact match it early outs    \
+    with the closest result it found during the find. As nodes with children have a key   \
+    which is only guaranteed to be correct under its parent's constraints and has nothing \
+    to do with its children, there may be a closer key in any of the children of the node \
+    returned. Hence we iterate the local subbranch, looking for closer fits. */           \
+    stop=r->field.trie_parent; \
+    for(node=ret, node=name##_NEDTRIE_BRANCHNEXT(&node); node && node!=stop; node=name##_NEDTRIE_BRANCHNEXT(&node)) \
+    { \
+      nodekey=keyfunct(node); \
+      /* If nodekey is a closer fit to search key, mark as best result so far */ \
+      if(nodekey>=rkey && nodekey-rkey<retkey) \
+      { \
+        ret=node; \
+        retkey=nodekey-rkey; \
+      } \
+    } \
+    return ret; \
   }
 #else /* NEDTRIEUSEMACROS */
 #define NEDTRIE_GENERATE_NFIND(proto, name, type, field, keyfunct) \
@@ -1211,10 +1274,10 @@ namespace nedtries {
   NEDTRIE_GENERATE_FIND     (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_EXACTFIND(proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_CFIND    (proto, name, type, field, keyfunct) \
-  NEDTRIE_GENERATE_NFIND    (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_MINMAX   (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_PREV     (proto, name, type, field, keyfunct) \
   NEDTRIE_GENERATE_NEXT     (proto, name, type, field, keyfunct) \
+  NEDTRIE_GENERATE_NFIND    (proto, name, type, field, keyfunct) \
   proto INLINE struct type * name##_NEDTRIE_PREVLEAF(struct type *r) { return (r)->field.trie_prev; } \
   proto INLINE struct type * name##_NEDTRIE_NEXTLEAF(struct type *r) { return (r)->field.trie_next; }
 
@@ -1895,10 +1958,10 @@ namespace nedtries {
       const mapvaluetype *r=triehead_nfind(key);
       return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
     }
-    //! Finds the nearest item with key \em key
+    //! Finds the closest item with key \em key trying up to \em rounds times
     iterator cfind(const key_type &key, int rounds=INT_MAX) { const_iterator it=static_cast<const trie_map *>(this)->cfind(key, rounds); void *_it=(void *) &it; return *(iterator *)_it; }
-    //! Finds the nearest item with key \em key
-    const_iterator nfind(const key_type &key, int rounds=INT_MAX) const
+    //! Finds the closest item with key \em key trying up to \em rounds times
+    const_iterator cfind(const key_type &key, int rounds=INT_MAX) const
     {
       const mapvaluetype *r=triehead_cfind(key, rounds);
       return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
@@ -2169,6 +2232,22 @@ namespace nedtries {
     {
       const mapvaluetype *r=triehead_find(key);
       return !r ? end() : const_iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
+    }
+    //! Finds the nearest item with key \em key
+    iterator nfind(const key_type &key) { const_iterator it=static_cast<const trie_map *>(this)->nfind(key); void *_it=(void *) &it; return *(iterator *)_it; }
+    //! Finds the nearest item with key \em key
+    const_iterator nfind(const key_type &key) const
+    {
+      const mapvaluetype *r=triehead_nfind(key);
+      return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
+    }
+    //! Finds the closest item with key \em key trying up to \em rounds times
+    iterator cfind(const key_type &key, int rounds=INT_MAX) { const_iterator it=static_cast<const trie_map *>(this)->cfind(key, rounds); void *_it=(void *) &it; return *(iterator *)_it; }
+    //! Finds the closest item with key \em key trying up to \em rounds times
+    const_iterator cfind(const key_type &key, int rounds=INT_MAX) const
+    {
+      const mapvaluetype *r=triehead_cfind(key, rounds);
+      return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
     }
     using stlcontainer::get_allocator;
     //! Inserts the item \em val

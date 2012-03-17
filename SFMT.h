@@ -126,7 +126,7 @@ inline static double genrand_real3(void)
 /** generates a random number on [0,1) with 53-bit resolution*/
 inline static double to_res53(uint64_t v) 
 { 
-    return v * (1.0/18446744073709551616.0L);
+    return (double)(v * (1.0/18446744073709551616.0L));
 }
 
 /** generates a random number on [0,1) with 53-bit resolution from two

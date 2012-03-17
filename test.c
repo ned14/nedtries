@@ -156,7 +156,7 @@ int main(void)
       max=items_sorted[RANDOM_NFIND_TEST_ITEMS-1];
 
       c.key=gen_rand32() & RANDOM_NFIND_TEST_KEYMASK;
-      r2=NEDTRIE_CFIND(foo_tree_s, &footree, &c);
+      r2=NEDTRIE_CFIND(foo_tree_s, &footree, &c, INT_MAX);
       r=NEDTRIE_NFIND(foo_tree_s, &footree, &c);
       promoted+=(r!=r2);
       if(c.key>max->key)
