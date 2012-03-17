@@ -2234,7 +2234,7 @@ namespace nedtries {
       return !r ? end() : const_iterator((trie_map<keytype, type, keyfunct, allocator, nobblepolicy, stlcontainer> *) this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
     }
     //! Finds the nearest item with key \em key
-    iterator nfind(const key_type &key) { const_iterator it=static_cast<const trie_map *>(this)->nfind(key); void *_it=(void *) &it; return *(iterator *)_it; }
+    iterator nfind(const key_type &key) { const_iterator it=static_cast<const trie_multimap *>(this)->nfind(key); void *_it=(void *) &it; return *(iterator *)_it; }
     //! Finds the nearest item with key \em key
     const_iterator nfind(const key_type &key) const
     {
@@ -2242,7 +2242,7 @@ namespace nedtries {
       return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
     }
     //! Finds the closest item with key \em key trying up to \em rounds times
-    iterator cfind(const key_type &key, int rounds=INT_MAX) { const_iterator it=static_cast<const trie_map *>(this)->cfind(key, rounds); void *_it=(void *) &it; return *(iterator *)_it; }
+    iterator cfind(const key_type &key, int rounds=INT_MAX) { const_iterator it=static_cast<const trie_multimap *>(this)->cfind(key, rounds); void *_it=(void *) &it; return *(iterator *)_it; }
     //! Finds the closest item with key \em key trying up to \em rounds times
     const_iterator cfind(const key_type &key, int rounds=INT_MAX) const
     {

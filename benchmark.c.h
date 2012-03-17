@@ -38,28 +38,36 @@ typedef struct BENCHMARK_PREFIX(region_node2_s)
 } BENCHMARK_PREFIX(region_node2_t);
 static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
 {
-  static BENCHMARK_PREFIX(region_node2_t) nodes[ALLOCATIONS];
+  static BENCHMARK_PREFIX(region_node2_t) nodes[1<<ALLOCATIONS];
   BENCHMARK_PREFIX(region_node_t) *r;
   int l, n, m;
   usCount start, end;
-  printf("Running scalability test for %s\n", ai->name);
+  printf("\nRunning scalability test for %s\n", ai->name);
   printf("sizeof(REGION_ENTRY)=%d\n", (int) sizeof(nodes[0].node.link));
   init_gen_rand(1234);
-  for(n=0; n<ALLOCATIONS; n++)
+  REGION_INIT(&BENCHMARK_PREFIX(regiontree));
+  for(n=0; n<(1<<ALLOCATIONS); n++)
   {
+  tryagain:
     nodes[n].node.key=gen_rand32();
-    for(m=0; m<n; m++)
-      if(nodes[n].node.key==nodes[m].node.key) { nodes[n].node.key=gen_rand32(); m=-1; }
+    r=REGION_FIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+n)->node);
+    if(!r)
+    {
+      REGION_INSERT(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+n)->node);
+    }
+    else goto tryagain;
   }
   REGION_INIT(&BENCHMARK_PREFIX(regiontree));
   for(m=0; m<ALLOCATIONS; m++)
   {
     usCount insert=0, find1=0, find2=0, remove=0, iterate=0, nfind=0, cfind1=0, cfind2=0;
-    int lmax=4*(nedtriebitscanr(ALLOCATIONS)-nedtriebitscanr(m)); /* Loop more when m is smaller */
+    int lmax=(ALLOCATIONS*ALLOCATIONS*8-(m*m*m*m)); /* Loop more when m is smaller */
+    lmax*=AVERAGE;
     if(lmax<1) lmax=1;
+    printf("Nodes=%d, iterations=%d\n", 1<<m, lmax);
     for(l=0; l<lmax; l++)
     {
-      for(n=0; n<m; n++)
+      for(n=0; n<(1<<m); n++)
       {
         int ridx=gen_rand32() % (n+1);
         start=GetUsCount();
@@ -72,7 +80,7 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
         if(!r) abort();
         find1+=end-start-usCountOverhead;
       }
-      for(n=0; n<m; n++)
+      for(n=0; n<(1<<m); n++)
       {
         start=GetUsCount();
         r=REGION_FIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+n)->node);
@@ -81,7 +89,7 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
         find2+=end-start-usCountOverhead;
       }
 #ifdef REGION_CFIND1
-      for(n=0; n<m; n++)
+      for(n=0; n<(1<<m); n++)
       {
         BENCHMARK_PREFIX(region_node_t) t;
         t.key=gen_rand32();
@@ -92,25 +100,31 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
       }
 #endif
 #ifdef REGION_CFIND2
-      for(n=0; n<m; n++)
+      if(m<=18)
       {
-        BENCHMARK_PREFIX(region_node_t) t;
-        t.key=gen_rand32();
-        start=GetUsCount();
-        r=REGION_CFIND2(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &t);
-        end=GetUsCount();
-        cfind2+=end-start-usCountOverhead;
+        for(n=0; n<(1<<m); n++)
+        {
+          BENCHMARK_PREFIX(region_node_t) t;
+          t.key=gen_rand32();
+          start=GetUsCount();
+          r=REGION_CFIND2(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &t);
+          end=GetUsCount();
+          cfind2+=end-start-usCountOverhead;
+        }
       }
 #endif
 #ifdef REGION_NFIND
-      for(n=0; n<m; n++)
+      if(m<=15)
       {
-        BENCHMARK_PREFIX(region_node_t) t;
-        t.key=gen_rand32();
-        start=GetUsCount();
-        r=REGION_NFIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &t);
-        end=GetUsCount();
-        nfind+=end-start-usCountOverhead;
+        for(n=0; n<(1<<m); n++)
+        {
+          BENCHMARK_PREFIX(region_node_t) t;
+          t.key=gen_rand32();
+          start=GetUsCount();
+          r=REGION_NFIND(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &t);
+          end=GetUsCount();
+          nfind+=end-start-usCountOverhead;
+        }
       }
 #endif
       for(r=REGION_MIN(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree)); r;)
@@ -120,7 +134,7 @@ static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
         end=GetUsCount();
         iterate+=end-start-usCountOverhead;
       }
-      for(n=0; n<m; n++)
+      for(n=0; n<(1<<m); n++)
       {
         start=GetUsCount();
         REGION_REMOVE(BENCHMARK_PREFIX(region_tree_s), &BENCHMARK_PREFIX(regiontree), &(nodes+n)->node);

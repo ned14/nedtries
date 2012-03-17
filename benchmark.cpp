@@ -33,9 +33,11 @@ DEALINGS IN THE SOFTWARE.
 #include <math.h>
 #include <assert.h>
 
-#define ALLOCATIONS 4096
-#define AVERAGE 8
-#define ITEMSIZE 0        /* Set =page size to test TLB scaling */
+/*#define USE_CPU_CYCLES 2666666666      /* Undefine to return ops/sec */
+#define USE_CPU_CYCLES 0      /* Undefine to return ops/sec */
+#define ALLOCATIONS 23        /* How far up to test scaling */
+#define AVERAGE 16            /* Smoothing factor */
+#define ITEMSIZE 0            /* Set =page size to test TLB scaling */
 
 #include "nedtrie.h"
 #include "rbtree.h"
@@ -73,6 +75,7 @@ static usCount GetUsCount()
 #else
 #include <sys/time.h>
 #include <time.h>
+#include <sched.h>
 typedef unsigned long long usCount;
 static usCount GetUsCount()
 {
@@ -87,7 +90,38 @@ static usCount GetUsCount()
 #endif
 }
 #endif
-static usCount usCountOverhead;
+static usCount usCountOverhead, CPUClockSpeed;
+#ifdef __GNUC__
+#include "x86intrin.h"
+#define __rdtsc() __builtin_ia32_rdtsc()
+#endif
+static usCount GetClockSpeed()
+{
+  int n;
+  usCount start, end, start_tsc, end_tsc;
+  if(!usCountOverhead)
+  {
+    usCount foo=0;
+    start=GetUsCount();
+    for(n=0; n<1000000; n++)
+    {
+      foo+=GetUsCount();
+    }
+    end=GetUsCount();
+    usCountOverhead=(end-start)/n;
+  }
+  start=GetUsCount();
+  start_tsc=__rdtsc();
+  for(n=0; n<1000; n++)
+#ifdef WIN32
+    Sleep(0);
+#else
+    sched_yield();
+#endif
+  end_tsc=__rdtsc();
+  end=GetUsCount();
+  return (usCount)((1000000000000.0*(end_tsc-start_tsc))/(end-start-usCountOverhead));
+}
 
 /* Include the Mersenne twister */
 #if !defined(__cplusplus_cli) && (defined(_M_X64) || defined(__x86_64__) || (defined(_M_IX86) && _M_IX86_FP>=2) || (defined(__i386__) && defined(__SSE2__)))
@@ -219,7 +253,7 @@ typedef struct AlgorithmInfo_t
 #undef REGION_HASNODEHEADER
 
 #ifdef __cplusplus
-static size_t nodekeys[ALLOCATIONS];
+static size_t nodekeys[1<<ALLOCATIONS];
 template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
 {
   stlcontainer nodes;
@@ -228,7 +262,7 @@ template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
   usCount start, end;
   printf("Running scalability test for %s\n", ai->name);
   init_gen_rand(1234);
-  for(n=0; n<ALLOCATIONS; n++)
+  for(n=0; n<1<<ALLOCATIONS; n++)
   {
     nodekeys[n]=gen_rand32();
     for(m=0; m<n; m++)
@@ -237,11 +271,13 @@ template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
   for(m=0; m<ALLOCATIONS; m++)
   {
     usCount insert=0, find1=0, find2=0, remove=0, iterate=0;
-    int lmax=(nedtriebitscanr(ALLOCATIONS)-nedtriebitscanr(m)); /* Loop more when m is smaller */
+    int lmax=(ALLOCATIONS*ALLOCATIONS-(m*m*m)); /* Loop more when m is smaller */
+    lmax*=AVERAGE;
     if(lmax<1) lmax=1;
+    printf("Nodes=%d, iterations=%d\n", 1<<m, lmax);
     for(l=0; l<lmax; l++)
     {
-      for(n=0; n<m; n++)
+      for(n=0; n<(1<<m); n++)
       {
         int ridx=gen_rand32() % (n+1);
         start=GetUsCount();
@@ -254,7 +290,7 @@ template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
         if(nodes.end()==it) abort();
         find1+=end-start-usCountOverhead;
       }
-      for(n=0; n<m; n++)
+      for(n=0; n<(1<<m); n++)
       {
         start=GetUsCount();
         it=nodes.find(nodekeys[n]);
@@ -269,7 +305,7 @@ template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
         end=GetUsCount();
         iterate+=end-start-usCountOverhead;
       }
-      for(n=0; n<m; n++)
+      for(n=0; n<(1<<m); n++)
       {
         start=GetUsCount();
         nodes.erase(nodes.find(nodekeys[n]));
@@ -307,8 +343,12 @@ int main(void)
     }
     end=GetUsCount();
     usCountOverhead=(end-start)/n;
+    CPUClockSpeed=GetClockSpeed();
+#if defined(USE_CPU_CYCLES) && USE_CPU_CYCLES>0
+    CPUClockSpeed=USE_CPU_CYCLES;
+#endif
   }
-  printf("GetUsCount() overhead is %lu\n", (unsigned long) usCountOverhead);
+  printf("GetUsCount() overhead is %lu and CPU clock speed is %lu\n", (unsigned long) usCountOverhead, (unsigned long) CPUClockSpeed);
   if(1)
   {
     /* These are the C benchmarks */
@@ -346,7 +386,7 @@ int main(void)
   if(!oh) abort();
   for(m=0; m<algorithmslen; m++)
   {
-    fprintf(oh, "\"Insert (%s)\",\"Find 0-N (%s)\",\"Find N (%s)\",\"Remove (%s)\",\"Iterate (%s)\",\"Close find 0 (%s)\",\"Close find INF (%s)\",\"Nearest find (%s)\"%c", algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, m==algorithmslen-1 ? '\n' : ',');
+    fprintf(oh, "\"Items\",\"Insert (%s)\",\"Find 0-N (%s)\",\"Find N (%s)\",\"Remove (%s)\",\"Iterate (%s)\",\"Close find 0 (%s)\",\"Close find INF (%s)\",\"Nearest find (%s)\"%c", algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, algorithms[m].name, m==algorithmslen-1 ? '\n' : ',');
     algorithms[m].inserts[0]=algorithms[m].finds1[0]=algorithms[m].finds2[0]=algorithms[m].removes[0]=algorithms[m].iterates[0]=algorithms[m].cfind1s[0]=algorithms[m].cfind2s[0]=algorithms[m].nfinds[0]=1;
   }
   /* Max out the CPU to try to counter SpeedStep */
@@ -360,9 +400,8 @@ int main(void)
     {
       int k, added=0;
       double inserts=0, finds1=0, finds2=0, removes=0, iterates=0, cfind1s=0, cfind2s=0, nfinds=0;
-      for(k=n-AVERAGE/2; k<=n+AVERAGE/2; k++)
+      k=n;
       {
-        if(k<0 || k>=ALLOCATIONS) continue;
         inserts+=pow(algorithms[m].inserts[k]/1000000000000.0, 1.0/3);
         finds1+=pow(algorithms[m].finds1[k]/1000000000000.0, 1.0/3);
         finds2+=pow(algorithms[m].finds2[k]/1000000000000.0, 1.0/3);
@@ -373,19 +412,35 @@ int main(void)
         nfinds+=pow(algorithms[m].nfinds[k]/1000000000000.0, 1.0/3);
         added++;
       }
+#ifdef USE_CPU_CYCLES
+      if(cfind1s<0.01) cfind1s=0;
+      if(cfind2s<0.01) cfind2s=0;
+      if(nfinds<0.01) nfinds=0;
+      fprintf(oh, "%d,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf%c", (1<<n),
+        CPUClockSpeed/((1<<n)/(pow(inserts/added, 3))),
+        CPUClockSpeed/((1<<n)/(pow(finds1/added, 3))),
+        CPUClockSpeed/((1<<n)/(pow(finds2/added, 3))),
+        CPUClockSpeed/((1<<n)/(pow(removes/added, 3))),
+        CPUClockSpeed/((1<<n)/(pow(iterates/added, 3))),
+        CPUClockSpeed/((1<<n)/(pow(cfind1s/added, 3))),
+        CPUClockSpeed/((1<<n)/(pow(cfind2s/added, 3))),
+        CPUClockSpeed/((1<<n)/(pow(nfinds/added, 3))),
+        m==algorithmslen-1 ? '\n' : ',');
+#else
       if(cfind1s<0.01) cfind1s=HUGE_VAL;
       if(cfind2s<0.01) cfind2s=HUGE_VAL;
       if(nfinds<0.01) nfinds=HUGE_VAL;
-      fprintf(oh, "%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf%c",
-        n/(pow(inserts/added, 3)),
-        n/(pow(finds1/added, 3)),
-        n/(pow(finds2/added, 3)),
-        n/(pow(removes/added, 3)),
-        n/(pow(iterates/added, 3)),
-        n/(pow(cfind1s/added, 3)),
-        n/(pow(cfind2s/added, 3)),
-        n/(pow(nfinds/added, 3)),
+      fprintf(oh, "%d,%lf,%lf,%lf,%lf,%lf,%lf,%lf,%lf%c", (1<<n),
+        (1<<n)/(pow(inserts/added, 3)),
+        (1<<n)/(pow(finds1/added, 3)),
+        (1<<n)/(pow(finds2/added, 3)),
+        (1<<n)/(pow(removes/added, 3)),
+        (1<<n)/(pow(iterates/added, 3)),
+        (1<<n)/(pow(cfind1s/added, 3)),
+        (1<<n)/(pow(cfind2s/added, 3)),
+        (1<<n)/(pow(nfinds/added, 3)),
         m==algorithmslen-1 ? '\n' : ',');
+#endif
     }
   }
   fclose(oh);
