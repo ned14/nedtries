@@ -63,7 +63,7 @@ int main(void)
   assert(!NEDTRIE_PREV(foo_tree_s, &footree, &b));
   assert(!NEDTRIE_NEXT(foo_tree_s, &footree, &b));
 
-#ifdef __cplusplus
+#if defined(__cplusplus) && 1
   printf("General workout of the C++ API ...\n");
   assert(keyfunct()(78)==5);
   using namespace nedtries;

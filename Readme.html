@@ -73,11 +73,13 @@ td ul {
 	<hr /></div>
 <p>Enclosed is nedtries, an in-place bitwise binary Fredkin trie algorithm which allows for near 
 constant time insertions, deletions, finds,
-<span style="text-decoration: underline"> <strong>closest fit finds</strong></span> and iteration. On 
-modern hardware it is approximately 50-100% faster than red-black binary trees, it 
-handily beats even the venerable O(1) hash table for less than 3000 objects and 
-it is barely slower than the hash table for 10000 objects. Past 10000 objects 
-you probably ought to use a hash table though.</p>
+<span style="text-decoration: underline"> <strong>closest fit finds</strong></span> 
+and iteration. On modern hardware it is approximately 50-100% faster than 
+red-black binary trees, it handily beats even the venerable O(1) hash table for 
+less than 3000 objects and it is barely slower than the hash table for 10000 
+objects. Past 10000 objects you probably ought to use a hash table though, and 
+if you need <a href="#nfindversuscfind">nearest fit rather than close fit</a> 
+then red-black trees are still optimal.</p>
 <p>It is licensed under the
 <a href="http://www.boost.org/LICENSE_1_0.txt" target="_blank">Boost Software License</a> 
 which basically means you can do anything you like with it. Commercial support is 
@@ -85,9 +87,10 @@ available from <a href="http://www.nedproductions.biz/" target="_blank">ned
 Productions Limited</a>.</p>
 <p>Its advantages over other algorithms are sizeable:</p>
 <ol>
-	<li>It has all the advantages of red-black trees such as nearest-fit finds 
-	(i.e. find the item which is the closest to the search term) without 
-	anything like the impact on memory bandwidth as red-black trees (i.e. it 
+	<li>It has all the advantages of red-black trees such as close-fit finds 
+	(i.e. find an item which is similar but not exact to the search term) without 
+	anything like the impact on memory bandwidth as red-black trees because it 
+	doesn't have to rebalance itself when adding new items (i.e. it 
 	scales far better with memory pressure than red-black trees).</li>
 	<li>It doesn&#39;t require dynamic memory like hash tables, so it can be used in 
 	a bounded environment such as a bootstrapper or a tiny embedded systems 
@@ -100,30 +103,36 @@ Productions Limited</a>.</p>
 	degradation with increasing M average where 1 &lt;= M &lt;= 8*sizeof(void *). M is a measure 
 	of the entropy between differing keys, so where keys are very similar at the 
 	bit level M is 
-	higher than where keys are very dissimilar.</li>
+	higher than where keys are very dissimilar. This leads to an unusual 
+	complexity where it can be like O(log N) for some distributions of key, and 
+	like O(1) for other distributions of key. The scaling graphs below are for 
+	completely random keys.</li>
 	<li>Its complexities for find and insert are identical, whereas for deletion 
 	it is slightly more constant. Unlike almost any other algorithm, bitwise binary tries 
 	have nearly identical real world speeds for ALL its operations rather than 
 	being fast at one thing but slow at the others. In other words, if your code 
-	equally inserts, deletes and finds with no preference for which then 	<span style="text-decoration: underline">this algorithm will beat all others 
+	equally inserts, deletes and finds with no preference for which then 	<span style="text-decoration: underline">this algorithm will 
+	typically beat all others 
 	in the general purpose situation</span>.</li>
 </ol>
-<p>Its primary disadvantage is that it can only key upon a size_t (i.e. the size 
+<p>Its two primary disadvantages are that (i) it can only key upon a size_t (i.e. the size 
 of a void *), so it cannot make use of an arbitrarily large key like a hash 
 table can (though of course one could hash the large key into a size_t sized 
-key). It also runs fastest when the key is as unique as possible, so if you wish 
+key) and (ii) it is lousy at guaranteed nearest fit finds. It also runs fastest when the key is as unique 
+from other keys as possible, so if you wish 
 to replace a red-black tree which has a complex left-right comparison function 
 which cannot be converted into a stable size_t value then you will need to stick 
 with red-black trees. In other words, it is ideal when you are keying on pointer 
 sized keys where each item has a definitive non-changing key.</p>
-<p>In short, <strong>if 
-you are not already using bitwise tries then you probably ought to be!</strong> 
-Read on for how to add them to your software.</p>
+<p>Have a look at the scaling graphs below to decide if your software could 
+benefit. Note for non-random key distributions you may get significantly better 
+or worse performance than shown. If you're interested, read on for how to add them to your software.</p>
 <div><center>
 <img alt="Bitwise Trees Scaling" height="25%" src="images/BitwiseTreesScaling.png" width="25%" /><img alt="Red Black Trees Scaling" height="25%" src="images/RedBlackTreesScaling.png" width="25%" /><img alt="Hash Table Scaling" height="25%" src="images/HashTableScaling.png" width="25%" /></center></div>
+<div><center><img alt="Bitwise Trees Scaling" height="25%" src="images/LogLogBitwiseTreesScaling.png" width="25%" /><img alt="Red Black Trees Scaling" height="25%" src="images/LogLogRedBlackTreesScaling.png" width="25%" /><img alt="Hash Table Scaling" height="25%" src="images/LogLogHashTableScaling.png" width="25%" /></center></div>
 <h2><a name="breakingchanges">A. Breaking changes since previous versions:</a></h2>
 <p>In v1.02 a breaking change in what NEDTRIE_NFIND means and does was 
-introduced, and the version was bumped to v1.02 precisely to warn users of the 
+introduced, and the version was bumped to v1.02 to warn users of the 
 change. The problem in v1.01 and earlier was that I had incorrectly 
 documented what NEDTRIE_NFIND does: I said that it found the nearest item to the 
 search term when this was patently untrue (thanks to smilingthax for reporting 
@@ -147,7 +156,8 @@ close key (those not necessarily the closest).</p>
 <p>For a summary of the differences between Nfind and Cfind,
 <a href="#nfindversuscfind">see this useful table</a>. Note that if you just 
 want any item with a key larger or equal to the search key, 
-NEDTRIE_CFIND(rounds=0|1|2) is extremely swift.</p>
+NEDTRIE_CFIND(rounds=0|1|2) is extremely swift and has O(1) complexity as shown 
+in the graphs above.</p>
 <h2><a name="implementation">B. Implementation:</a></h2>
 <p>The source makes use of C macros on C and C++ templates on C++ - therefore, 
 unlike typical C-macro-based algorithms it is easy to debug and in fact, the improved 
@@ -359,8 +369,10 @@ Please contact ned Productions Consulting Ltd. for further details</a>.</p>
 <h2><a name="changelog">E. ChangeLog:</a></h2>
 <h3>v1.02 RC1 (?):</h3>
 <ul>
-	<li><span class="gitcommit">[master xxxxxxx]</span> Due to the breaking 
+	<li>Due to the breaking 
 	change in what NEDTRIE_NFIND means and does, bumped version number.</li>
+	<li><span class="gitcommit">[master xxxxxxx]</span> Fixed the C++ 
+	implementation causing memory corruption when built as 64 bit.</li>
 </ul>
 <h3>v1.01 RC2 (unreleased):</h3>
 <ul>

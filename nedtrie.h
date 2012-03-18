@@ -304,6 +304,7 @@ namespace nedtries {
 #define NEDTRIEFIELDOFFSET2(type, field) ((size_t) &(((type *)0)->field))
 #endif
 #define NEDTRIEFIELDOFFSET(type, field) NEDTRIEFIELDOFFSET2(struct type, field)
+#define NEDTRIEROUNDSIZE_T(v) (sizeof(size_t)+((v) & ~(sizeof(size_t)-1)))
 
 #ifdef __cplusplus
 namespace nedtries {
@@ -1647,7 +1648,7 @@ namespace nedtries {
     type trie_value;
     iteratortype trie_iterator;
     TrieLink_t<type> trie_link;
-    static const size_t trie_link_offset=sizeof(type)+sizeof(iteratortype); // GCC won't accept offsetof() as a template argument sadly :(
+    static const size_t trie_link_offset=NEDTRIEROUNDSIZE_T(sizeof(type))+NEDTRIEROUNDSIZE_T(sizeof(iteratortype)); // GCC won't accept offsetof() as a template argument sadly :(
   public:
     trie_maptype(const type &v) : trie_value(v) { }
     template<class keytype_, class type_, class keyfunct_, class iteratortype_> trie_maptype(const trie_maptype<keytype_, type_, keyfunct_, iteratortype_> &o) : trie_value(o.trie_value) { }
@@ -1673,7 +1674,7 @@ namespace nedtries {
     keytype trie_keyvalue; // For when key is overriden using trie_map::operator[]
     iteratortype trie_iterator;
     TrieLink_t<type> trie_link;
-    static const size_t trie_link_offset=sizeof(type)+sizeof(keytype)+sizeof(iteratortype); // GCC won't accept offsetof() as a template argument sadly :(
+    static const size_t trie_link_offset=NEDTRIEROUNDSIZE_T(sizeof(type))+NEDTRIEROUNDSIZE_T(sizeof(keytype))+NEDTRIEROUNDSIZE_T(sizeof(iteratortype)); // GCC won't accept offsetof() as a template argument sadly :(
   public:
     trie_maptype(const type &v) : trie_value(v) { }
     template<class keytype_, class type_, class iteratortype_> trie_maptype(const trie_maptype<keytype_, type_, trie_maptype_keyfunct<keytype_, type_>, iteratortype_> &o) : trie_value(o.trie_value), trie_keyvalue(o.trie_keyvalue) { }
