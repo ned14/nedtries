@@ -18,6 +18,7 @@ env['CCFLAGSFORNEDMALLOC']=[]
 # so it's good to go for ANY platform
 if sys.platform=="win32":
     # Even the very latest scons still screws this up :(
+    if 'INCLUDE' not in os.environ: raise Exception('Are you running this from inside a MSVC tools environment?')
     env['ENV']['INCLUDE']=os.environ['INCLUDE']
     env['ENV']['LIB']=os.environ['LIB']
     env['ENV']['PATH']=os.environ['PATH']
