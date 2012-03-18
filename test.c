@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+/*#define NEDTRIEUSEMACROS 1*/
+
 #include "nedtrie.h"
 
 #define RANDOM_NFIND_TEST_KEYMASK 63
@@ -72,13 +74,13 @@ int main(void)
   map.insert(78);
   multimap.insert(78);
   map.insert(79); // Replaces 78 with 79
-  multimap.insert(79); // Pushes the existing 78 back so 79 is now in front
+  multimap.insert(79); // Pushes the existing 78 backwards so 79 is now in front, so it's LIFO
   assert(map.size()==1);
   assert(multimap.size()==2);
   assert(79==*map.find(5));
   trie_multimap<int, int, keyfunct>::const_iterator it=multimap.find(5);
   assert(79==*it);
-  ++it;
+  --it; // NEDTRIE_PREV
   assert(78==*it);
 #endif
 
