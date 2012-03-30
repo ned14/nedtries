@@ -1,0 +1,21 @@
+creator: '"Niall Douglas \(s \[underscore\] sourceforge {at} nedprod \[dot\] com\)"
+  <spam@nowhere>'
+
+
+reporter: '"Niall Douglas \(s \[underscore\] sourceforge {at} nedprod \[dot\] com\)"
+  <spam@nowhere>'
+
+
+severity: minor
+
+
+status: open
+
+
+summary: Add function returning if a node is "correctly placed" as a sorted item.
+  This lets you know if it doesn't need sorting, or if it will be stable during modifications
+  of the trie
+
+
+time: Fri, 30 Mar 2012 11:58:59 +0000
+
