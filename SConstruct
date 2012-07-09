@@ -1,5 +1,6 @@
 import os, sys, platform
 
+AddOption('--debugbuild', dest='debugbuild', nargs='?', default=0, help='Builds output with debug settings')
 env = Environment()
 
 # Force scons to always use absolute paths in everything (helps debuggers to find source files)
@@ -24,7 +25,7 @@ if sys.platform=="win32":
     env['ENV']['PATH']=os.environ['PATH']
 
 # Am I building a debug or release build?
-if env.GetOption('debug'):
+if env.GetOption('debugbuild')!=0:
     env['CPPDEFINES']+=["DEBUG", "_DEBUG"]
     variant=architecture+"/Debug"
 else:
@@ -38,7 +39,7 @@ if sys.platform=='win32':
     env['CCFLAGS']+=["/GF"]             # Eliminate duplicate strings
     env['CCFLAGS']+=["/Gy"]             # Seperate COMDATs
     env['CCFLAGS']+=["/Zi"]             # Program database debug info
-    if env.GetOption('debug'):
+    if env.GetOption('debugbuild')!=0:
         env['CCFLAGS']+=["/Od", "/MDd"]
     else:
         env['CCFLAGS']+=["/O2", "/MD"]
@@ -49,12 +50,12 @@ if sys.platform=='win32':
 
     env['LINKFLAGS']+=["/MANIFEST"]             # Be UAC compatible
     
-    if not env.GetOption('debug'):
+    if env.GetOption('debugbuild')!=0:
         env['LINKFLAGS']+=["/OPT:REF", "/OPT:ICF"]  # Eliminate redundants
 else:
     env['CPPDEFINES']+=[]
     env['CCFLAGS']+=["-Wall", "-std=gnu++0x"]
-    if env.GetOption('debug'):
+    if env.GetOption('debugbuild')!=0:
         env['CCFLAGS']+=["-O0", "-g"]
     else:
         env['CCFLAGS']+=["-O2", "-g"]

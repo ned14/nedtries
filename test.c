@@ -184,6 +184,7 @@ int main(void)
       }
     }
     printf("Nfind returned a different item to Cfind %d of %d (%f%%) iterations\n", promoted, ITERATIONS, 100.0*promoted/ITERATIONS);
+    printf("\nPress Return to exit ...\n");
     getchar();
   }
   return 0;
