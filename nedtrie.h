@@ -1133,7 +1133,7 @@ namespace nedtries {
   template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trienext(const trietype *RESTRICT head, const type *RESTRICT r)
   {
     const type *RESTRICT node;
-    const TrieLink_t<type> *RESTRICT rlink;
+    const TrieLink_t<type> *RESTRICT rlink=0;
     unsigned bitidx;
 
     if((node=triebranchnext<trietype, type, fieldoffset, keyfunct>(r, &rlink))) return (type *) node;
@@ -1723,7 +1723,7 @@ namespace nedtries {
         trienext<trie_map_head<mapvaluetype>, mapvaluetype, mapvaluetype::trie_link_offset, intern::to_Ckeyfunct<typename mapvaluetype::trie_keyfunct_type> >(&parent->triehead, (mapvaluetype *)(&**this)) :
         trieprev<trie_map_head<mapvaluetype>, mapvaluetype, mapvaluetype::trie_link_offset, intern::to_Ckeyfunct<typename mapvaluetype::trie_keyfunct_type> >(&parent->triehead, (mapvaluetype *)(&**this));
       if(r)
-        new(this) iteratortype((iteratortype &) r->trie_iterator);
+        new(this) iteratortype((iteratortype &) r->trie_iterator); // type pun safe
       else
         *this=parent->end();
       return *this;
@@ -1949,7 +1949,7 @@ namespace nedtries {
     const_iterator find(const key_type &key) const
     {
       const mapvaluetype *r=triehead_find(key);
-      return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
+      return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator); // type pun safe
     }
     //! Finds the nearest item with key \em key
     iterator nfind(const key_type &key) { const_iterator it=static_cast<const trie_map *>(this)->nfind(key); void *_it=(void *) &it; return *(iterator *)_it; }
@@ -2017,7 +2017,7 @@ namespace nedtries {
       mapvaluetype *r=const_cast<mapvaluetype *>(triehead_find(key));
       iterator it;
       if(r)
-        it=iterator(this, (typename stlcontainer::iterator &) r->trie_iterator);
+        it=iterator(this, (typename stlcontainer::iterator &) r->trie_iterator); // type pun safe
       else
       {
         it=triehead_insert(key, std::move(type()));

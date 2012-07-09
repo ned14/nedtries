@@ -33,7 +33,7 @@ DEALINGS IN THE SOFTWARE.
 #include <math.h>
 #include <assert.h>
 
-/*#define USE_CPU_CYCLES 2666666666      /* Undefine to return ops/sec */
+/*#define USE_CPU_CYCLES 2666666666*/      /* Undefine to return ops/sec */
 #define USE_CPU_CYCLES 0      /* Undefine to return ops/sec */
 #define ALLOCATIONS 23        /* How far up to test scaling */
 #define AVERAGE 16            /* Smoothing factor */
