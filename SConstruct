@@ -54,7 +54,7 @@ if sys.platform=='win32':
         env['LINKFLAGS']+=["/OPT:REF", "/OPT:ICF"]  # Eliminate redundants
 else:
     env['CPPDEFINES']+=[]
-    env['CCFLAGS']+=["-Wall", "-Wno-unused-function", "-Wno-unused-but-set-variable"]
+    env['CCFLAGS']+=["-Wall", "-Wno-unused-variable", "-Wno-unused-function", "-Wno-unused-but-set-variable"]
     env['CXXFLAGS']+=["-std=gnu++0x"]
     env['CCFLAGS']+=["-Wno-strict-aliasing"]
     if env.GetOption('debugbuild')!=0:
