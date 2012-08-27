@@ -69,8 +69,8 @@ int main(void)
   printf("General workout of the C++ API ...\n");
   assert(keyfunct()(78)==5);
   using namespace nedtries;
-  trie_map<size_t, int, keyfunct> map;
-  trie_multimap<size_t, int, keyfunct> multimap;
+  trie_map<size_t, size_t, keyfunct> map;
+  trie_multimap<size_t, size_t, keyfunct> multimap;
   map.insert(78);
   multimap.insert(78);
   map.insert(79); // Replaces 78 with 79
@@ -78,7 +78,7 @@ int main(void)
   assert(map.size()==1);
   assert(multimap.size()==2);
   assert(79==*map.find(5));
-  trie_multimap<size_t, int, keyfunct>::const_iterator it=multimap.find(5);
+  trie_multimap<size_t, size_t, keyfunct>::const_iterator it=multimap.find(5);
   assert(79==*it);
   --it; // NEDTRIE_PREV
   assert(78==*it);

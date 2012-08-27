@@ -1801,14 +1801,16 @@ namespace nedtries {
       template<class key_type> struct keystore_t { size_t magic; const key_type &key; keystore_t(size_t magic_, const key_type &key_) : magic(magic_), key(key_) { } private: keystore_t &operator=(const keystore_t &); };
       template<class keytype, class type, class mapvaluetype, class keyfunct> struct findkeyfunct_t : public std::unary_function<type, keytype>
       {
-    	  size_t operator()(const mapvaluetype &v) const
+        size_t operator()(const mapvaluetype &v) const
         {
           keystore_t<keytype> *r=(keystore_t<keytype> *)(void *)(&v);
+	  // NOTE: This line triggers a "conditional jump or move depends on unintialized value(s)" in valgrind if
+	  // sizeof(type)<sizeof(size_t). This is unavoidable.
           if(r->magic==*(size_t *)"TRIEFINDKEYSTORE")
             return r->key;
           return keyfunct()(v);
         }
-  	  };
+      };
   }
 
   /*! \class trie_map
