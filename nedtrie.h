@@ -293,6 +293,12 @@ namespace nedtries {
     type *trie_prev, *trie_next;  /* my siblings of identical key to me. */
   };
   template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE void triecheckvalidity(trietype *head);
+  namespace testtrielinksize {
+    struct foo1; struct foo2;
+    struct foo1 { NEDTRIE_ENTRY(foo1) link; size_t n; };
+    struct foo2 { TrieLink_t<foo2> link; size_t n; };
+    static char test_sizeof_trielink_t_equal[sizeof(foo1)==sizeof(foo2)];
+  }
 
 } /* namespace */
 #endif
@@ -304,7 +310,6 @@ namespace nedtries {
 #define NEDTRIEFIELDOFFSET2(type, field) ((size_t) &(((type *)0)->field))
 #endif
 #define NEDTRIEFIELDOFFSET(type, field) NEDTRIEFIELDOFFSET2(struct type, field)
-#define NEDTRIEROUNDSIZE_T(v) (sizeof(size_t)+((v) & ~(sizeof(size_t)-1)))
 
 #ifdef __cplusplus
 namespace nedtries {
@@ -995,7 +1000,7 @@ namespace nedtries {
   template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trieprev(const trietype *RESTRICT head, const type *RESTRICT r)
   {
     const type *RESTRICT node=0, *RESTRICT child;
-    const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink;
+    const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink=0;
     unsigned bitidx;
 
     if((node=triebranchprev<trietype, type, fieldoffset, keyfunct>(r, &rlink))) return (type *) node;
@@ -1133,7 +1138,7 @@ namespace nedtries {
   template<class trietype, class type, size_t fieldoffset, size_t (*keyfunct)(const type *RESTRICT)> DEBUGINLINE type *trienext(const trietype *RESTRICT head, const type *RESTRICT r)
   {
     const type *RESTRICT node;
-    const TrieLink_t<type> *RESTRICT rlink;
+    const TrieLink_t<type> *RESTRICT rlink=0;
     unsigned bitidx;
 
     if((node=triebranchnext<trietype, type, fieldoffset, keyfunct>(r, &rlink))) return (type *) node;
@@ -1634,9 +1639,25 @@ namespace nedtries {
   Note that the nedtrie metadata is kept \em after the typed value - this prevents the nedtrie metadata interfering
   with any special data alignment you might be using from a specialised STL allocator.
   */
+  namespace fake {
+    template<class keytype, class type, class keyfunct, class iteratortype> struct trie_maptype
+    {
+      template<class keytype_, class type_> friend struct trie_keyfunct;
+      template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer, class iteratortype_, int dir, class mapvaluetype, class constiteratortype> friend class trie_iterator;
+      template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_map;
+      template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_multimap;
+      typedef keytype trie_key_type;
+      typedef type trie_value_type;
+      typedef keyfunct trie_keyfunct_type;
+      typedef iteratortype trie_iterator_type;
+      type trie_value;
+      iteratortype trie_iterator;
+      TrieLink_t<type> trie_link;
+    };
+  }
   template<class keytype, class type, class keyfunct, class iteratortype> struct trie_maptype
   {
-  private:
+  private: // ENSURE the fake type above mirrors this one
     template<class keytype_, class type_> friend struct trie_keyfunct;
     template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer, class iteratortype_, int dir, class mapvaluetype, class constiteratortype> friend class trie_iterator;
     template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_map;
@@ -1645,12 +1666,16 @@ namespace nedtries {
     typedef type trie_value_type;
     typedef keyfunct trie_keyfunct_type;
     typedef iteratortype trie_iterator_type;
+    typedef fake::trie_maptype<keytype, type, keyfunct, iteratortype> fakemirrorofme_type;
     type trie_value;
     iteratortype trie_iterator;
     TrieLink_t<type> trie_link;
-    static const size_t trie_link_offset=NEDTRIEROUNDSIZE_T(sizeof(type))+NEDTRIEROUNDSIZE_T(sizeof(iteratortype)); // GCC won't accept offsetof() as a template argument sadly :(
+    static const size_t trie_link_offset=NEDTRIEFIELDOFFSET2(fakemirrorofme_type, trie_link);
   public:
-    trie_maptype(const type &v) : trie_value(v) { }
+    trie_maptype(const type &v) : trie_value(v)
+    { // Prevent that memory corruption bug ever happening again
+      static char ensure_trie_link_offset_is_bounded[trie_link_offset+sizeof(trie_link)<=sizeof(*this)];
+    }
     template<class keytype_, class type_, class keyfunct_, class iteratortype_> trie_maptype(const trie_maptype<keytype_, type_, keyfunct_, iteratortype_> &o) : trie_value(o.trie_value) { }
 #ifdef HAVE_CPP0XRVALUEREFS
     template<class keytype_, class type_, class keyfunct_, class iteratortype_> trie_maptype(trie_maptype<keytype_, type_, keyfunct_, iteratortype_> &&o) : trie_value(std::move(o.trie_value)) { }
@@ -1658,9 +1683,27 @@ namespace nedtries {
     //! Silent const lvalue converter for type
     operator const type &() const { return trie_value; }
   };
+  namespace fake {
+    template<class keytype, class type, class iteratortype> struct trie_maptype2
+    {
+      template<class keytype_, class type_> friend struct trie_keyfunct;
+      template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer, class iteratortype_, int dir, class mapvaluetype, class constiteratortype> friend class trie_iterator;
+      template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_map;
+      template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_multimap;
+      template<class keytype_, class type_> friend struct trie_maptype_keyfunct;
+      typedef keytype trie_key_type;
+      typedef type trie_value_type;
+      typedef trie_maptype_keyfunct<keytype, type> trie_keyfunct_type;
+      typedef iteratortype trie_iterator_type;
+      type trie_value;
+      keytype trie_keyvalue; // For when key is overriden using trie_map::operator[]
+      iteratortype trie_iterator;
+      TrieLink_t<type> trie_link;
+    };
+  }
   template<class keytype, class type, class iteratortype> struct trie_maptype<keytype, type, trie_maptype_keyfunct<keytype, type>, iteratortype>
   {
-  private:
+  private: // ENSURE the fake type above mirrors this one
     template<class keytype_, class type_> friend struct trie_keyfunct;
     template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer, class iteratortype_, int dir, class mapvaluetype, class constiteratortype> friend class trie_iterator;
     template<class keytype_, class type_, class keyfunct_, class allocator, template<class> class nobblepolicy, class stlcontainer> friend class trie_map;
@@ -1670,13 +1713,17 @@ namespace nedtries {
     typedef type trie_value_type;
     typedef trie_maptype_keyfunct<keytype, type> trie_keyfunct_type;
     typedef iteratortype trie_iterator_type;
+    typedef fake::trie_maptype2<keytype, type, iteratortype> fakemirrorofme_type;
     type trie_value;
     keytype trie_keyvalue; // For when key is overriden using trie_map::operator[]
     iteratortype trie_iterator;
     TrieLink_t<type> trie_link;
-    static const size_t trie_link_offset=NEDTRIEROUNDSIZE_T(sizeof(type))+NEDTRIEROUNDSIZE_T(sizeof(keytype))+NEDTRIEROUNDSIZE_T(sizeof(iteratortype)); // GCC won't accept offsetof() as a template argument sadly :(
+    static const size_t trie_link_offset=NEDTRIEFIELDOFFSET2(fakemirrorofme_type, trie_link);
   public:
-    trie_maptype(const type &v) : trie_value(v) { }
+    trie_maptype(const type &v) : trie_value(v)
+    { // Prevent that memory corruption bug ever happening again
+      static char ensure_trie_link_offset_is_bounded[trie_link_offset+sizeof(trie_link)<=sizeof(*this)];
+    }
     template<class keytype_, class type_, class iteratortype_> trie_maptype(const trie_maptype<keytype_, type_, trie_maptype_keyfunct<keytype_, type_>, iteratortype_> &o) : trie_value(o.trie_value), trie_keyvalue(o.trie_keyvalue) { }
 #ifdef HAVE_CPP0XRVALUEREFS
     template<class keytype_, class type_, class iteratortype_> trie_maptype(trie_maptype<keytype_, type_, trie_maptype_keyfunct<keytype_, type_>, iteratortype_> &&o) : trie_value(std::move(o.trie_value)), trie_keyvalue(std::move(o.trie_keyvalue)) { }
@@ -1723,7 +1770,7 @@ namespace nedtries {
         trienext<trie_map_head<mapvaluetype>, mapvaluetype, mapvaluetype::trie_link_offset, intern::to_Ckeyfunct<typename mapvaluetype::trie_keyfunct_type> >(&parent->triehead, (mapvaluetype *)(&**this)) :
         trieprev<trie_map_head<mapvaluetype>, mapvaluetype, mapvaluetype::trie_link_offset, intern::to_Ckeyfunct<typename mapvaluetype::trie_keyfunct_type> >(&parent->triehead, (mapvaluetype *)(&**this));
       if(r)
-        new(this) iteratortype((iteratortype &) r->trie_iterator);
+        new(this) iteratortype((iteratortype &) r->trie_iterator); // type pun safe
       else
         *this=parent->end();
       return *this;
@@ -1754,14 +1801,16 @@ namespace nedtries {
       template<class key_type> struct keystore_t { size_t magic; const key_type &key; keystore_t(size_t magic_, const key_type &key_) : magic(magic_), key(key_) { } private: keystore_t &operator=(const keystore_t &); };
       template<class keytype, class type, class mapvaluetype, class keyfunct> struct findkeyfunct_t : public std::unary_function<type, keytype>
       {
-    	  size_t operator()(const mapvaluetype &v) const
+        size_t operator()(const mapvaluetype &v) const
         {
           keystore_t<keytype> *r=(keystore_t<keytype> *)(void *)(&v);
+	  // NOTE: This line triggers a "conditional jump or move depends on unintialized value(s)" in valgrind if
+	  // sizeof(type)<sizeof(size_t). This is unavoidable.
           if(r->magic==*(size_t *)"TRIEFINDKEYSTORE")
             return r->key;
           return keyfunct()(v);
         }
-  	  };
+      };
   }
 
   /*! \class trie_map
@@ -1949,7 +1998,7 @@ namespace nedtries {
     const_iterator find(const key_type &key) const
     {
       const mapvaluetype *r=triehead_find(key);
-      return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator);
+      return !r ? end() : const_iterator(this, (const typename stlcontainer::const_iterator &) r->trie_iterator); // type pun safe
     }
     //! Finds the nearest item with key \em key
     iterator nfind(const key_type &key) { const_iterator it=static_cast<const trie_map *>(this)->nfind(key); void *_it=(void *) &it; return *(iterator *)_it; }
@@ -2017,7 +2066,7 @@ namespace nedtries {
       mapvaluetype *r=const_cast<mapvaluetype *>(triehead_find(key));
       iterator it;
       if(r)
-        it=iterator(this, (typename stlcontainer::iterator &) r->trie_iterator);
+        it=iterator(this, (typename stlcontainer::iterator &) r->trie_iterator); // type pun safe
       else
       {
         it=triehead_insert(key, std::move(type()));

@@ -1,5 +1,8 @@
 mkdir docs
 mkdir docs\html
+cd docs
+"G:\Program Files\doxygen\bin\doxygen" ../Doxyfile
+cd ..
 copy /y Readme.html docs\html\index.html
 copy /y doxygen.css docs\html\doxygen.css
 xcopy /y /s images docs\html\images\
