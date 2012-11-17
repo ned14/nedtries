@@ -1,6 +1,7 @@
 import os, sys, platform
 
 AddOption('--debugbuild', dest='debugbuild', nargs='?', default=0, help='Builds output with debug settings')
+AddOption('--useclang', dest='useclang', nargs='?', const=True, help='use clang if it is available')
 env = Environment()
 
 # Force scons to always use absolute paths in everything (helps debuggers to find source files)
@@ -53,6 +54,9 @@ if sys.platform=='win32':
     if env.GetOption('debugbuild')!=0:
         env['LINKFLAGS']+=["/OPT:REF", "/OPT:ICF"]  # Eliminate redundants
 else:
+    if env.GetOption('useclang'):
+        env['CC']="clang"
+        env['CXX']="clang++"
     env['CPPDEFINES']+=[]
     env['CCFLAGS']+=["-Wall", "-Wno-unused-variable", "-Wno-unused-function", "-Wno-unused-but-set-variable"]
     env['CXXFLAGS']+=["-std=gnu++0x"]

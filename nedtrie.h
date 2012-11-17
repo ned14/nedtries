@@ -1601,7 +1601,7 @@ namespace nedtries {
 #ifdef HAVE_CPP0XRVALUEREFS
 	  keytype operator()(const type &v) const
 	  {
-		  static_assert(false, "trie_keyfunct has not been specialised for this type");
+		  static_assert(typeid(type)==typeid(type), "trie_keyfunct has not been specialised for this type");
 	  }
 #else
   private:
