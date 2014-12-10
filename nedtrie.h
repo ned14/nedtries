@@ -184,6 +184,9 @@ static INLINE unsigned nedtriebitscanr(size_t value)
 #endif
 	return (unsigned) n;
 #else
+#if __CHAR_BIT__ != 8
+#error CHAR_BIT is not eight, and therefore this generic bitscan routine will need adjusting!
+#endif
   /* This is a generic 32 and 64 bit compatible branch free bitscan right */
   size_t x=value;
   const size_t allbits1=~(size_t)0;
