@@ -28,6 +28,7 @@ DEALINGS IN THE SOFTWARE.
 */
 
 #include <assert.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <limits.h> /* For INT_MAX */
 
@@ -164,7 +165,7 @@ static INLINE unsigned nedtriebitscanr(size_t value)
     return (unsigned) bitpos;
   }
 #elif defined(__GNUC__)
-  return sizeof(value)*__CHAR_BIT__ - 1 - (unsigned) __builtin_clzl(value);
+  return sizeof(value)*CHAR_BIT - 1 - (unsigned) __builtin_clzl(value);
 #else
   /* The following code is illegal C, but it almost certainly will work.
   If not use the legal implementation below */
@@ -184,23 +185,22 @@ static INLINE unsigned nedtriebitscanr(size_t value)
 #endif
 	return (unsigned) n;
 #else
-#if __CHAR_BIT__ != 8
+#if CHAR_BIT != 8
 #error CHAR_BIT is not eight, and therefore this generic bitscan routine will need adjusting!
 #endif
   /* This is a generic 32 and 64 bit compatible branch free bitscan right */
   size_t x=value;
-  const size_t allbits1=~(size_t)0;
   x = x | (x >> 1);
   x = x | (x >> 2);
   x = x | (x >> 4);
   x = x | (x >> 8);
-  x = x | (x >>16);
-  if(8==sizeof(x)) x = x | (x >>32);
+  if(16 < sizeof(x)*CHAR_BIT) x = x | (x >>16);
+  if(32 < sizeof(x)*CHAR_BIT) x = x | (x >>32);
   x = ~x;
-  x = x - ((x >> 1) & (allbits1/3));
-  x = (x & (allbits1/15*3)) + ((x >> 2) & (allbits1/15*3));
-  x = ((x + (x >> 4)) & (allbits1/255*15)) * (allbits1/255);
-  x = (8*sizeof(x)-1) - (x >> (8*(sizeof(x)-1)));
+  x = x - ((x >> 1) & (SIZE_MAX/3));
+  x = (x & (SIZE_MAX/15*3)) + ((x >> 2) & (SIZE_MAX/15*3));
+  x = ((x + (x >> 4)) & (SIZE_MAX/UCHAR_MAX*15)) * (SIZE_MAX/UCHAR_MAX);
+  x = (CHAR_BIT*sizeof(x)-1) - (x >> (CHAR_BIT*(sizeof(x)-1)));
   return (unsigned) x;
 #endif
 #endif
