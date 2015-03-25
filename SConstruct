@@ -1,7 +1,9 @@
 import os, sys, platform
 
 AddOption('--debugbuild', dest='debugbuild', nargs='?', default=0, help='Builds output with debug settings')
+AddOption('--optdebugbuild', dest='debugbuild', action='store_const', const=2, help='enable optimised debug build')
 AddOption('--useclang', dest='useclang', nargs='?', const=True, help='use clang if it is available')
+AddOption('--analyze', dest='analyze', nargs='?', const=True, help='have the compiler do static analysis')
 env = Environment()
 
 # Force scons to always use absolute paths in everything (helps debuggers to find source files)
@@ -40,7 +42,7 @@ if sys.platform=='win32':
     env['CCFLAGS']+=["/GF"]             # Eliminate duplicate strings
     env['CCFLAGS']+=["/Gy"]             # Seperate COMDATs
     env['CCFLAGS']+=["/Zi"]             # Program database debug info
-    if env.GetOption('debugbuild')!=0:
+    if env.GetOption('debugbuild')==1:
         env['CCFLAGS']+=["/Od", "/MDd"]
     else:
         env['CCFLAGS']+=["/O2", "/MD"]
@@ -53,6 +55,8 @@ if sys.platform=='win32':
     
     if env.GetOption('debugbuild')!=0:
         env['LINKFLAGS']+=["/OPT:REF", "/OPT:ICF"]  # Eliminate redundants
+    if env.GetOption('analyze'):
+        env['CCFLAGS']+=["/analyze"]
 else:
     if env.GetOption('useclang'):
         env['CC']="clang"
@@ -65,6 +69,8 @@ else:
         env['CCFLAGS']+=["-O0", "-g"]
     else:
         env['CCFLAGS']+=["-O2", "-g"]
+    if env.GetOption('analyze'):
+        env['CCFLAGS']+=["--analyze"]
     env['LIBS']+=["rt", "m"]
     env['LINKFLAGS']+=[]
 
