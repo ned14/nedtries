@@ -1,73 +1,8 @@
-﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-
-<head>
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
-<title>nedtries Readme</title>
-<style type="text/css">
-<!--
-body {
-	text-align: justify;
-}
-h1, h2, h3, h4, h5, h6 {
-	margin-bottom: -0.5em;
-}
-h1 {
-	text-align: center;
-}
-h2 {
-	text-decoration: underline;
-	margin-bottom: -0.25em;
-}
-p {
-	margin-top: 0.5em;
-	margin-bottom: 0.5em;
-}
-pre {
-	background: #eee;
-	width: 80%;
-	margin-left:auto;
-	margin-right:auto;
-}
-ul li, ol li {
-	margin-top: 0.2em;
-	margin-bottom: 0.2em;
-}
-dl {
-	margin-left: 2em;
-}
-dl dt {
-	font-weight: bold;
-}
-dt + dd {
-	margin-bottom: 1em;
-}
-.gitcommit {
-	font-family: "Courier New", Courier, monospace;
-	font-size: smaller;
-}
-table {
-    border: 0;
-}
-th {
-	text-align: center;
-}
-td {
-    border-color: lightgray;
-	border-style: solid;
-	border-width: 1px;
-}
-td ul {
-	margin-right: 2em;
-}
--->
-</style>
-</head>
-
+﻿<html xmlns="http://www.w3.org/1999/xhtml">
 <body>
 
 <div style="text-align: center">
-	<h1 style="text-decoration: underline">nedtries v1.02 Final (9th July 2012)</h1>
+	<h1 style="text-decoration: underline">nedtries v1.03 trunk (?)</h1>
 	<h2 style="text-decoration: none;">by Niall Douglas</h2>
 	<p>Web site: <a href="http://www.nedprod.com/programs/portable/nedtries/">http://www.nedprod.com/programs/portable/nedtries/</a></p>
 	<hr /></div>
@@ -367,6 +302,11 @@ libraries</a> (and thereafter into the standard C++ language itself), I would be
 very pleased to oblige. <a href="http://www.nedproductions.biz/" target="_blank">
 Please contact ned Productions Consulting Ltd. for further details</a>.</p>
 <h2><a name="changelog">E. ChangeLog:</a></h2>
+<h3>v1.03 trunk (?):</h3>
+<ul>
+	<li>Added some support for architectures where CHAR_BIT is not 8. Thanks
+    to Sebastian Ramadan for contributing this.</li>
+</ul>
 <h3>v1.02 Final (9th July 2012):</h3>
 <ul>
 	<li>Due to the breaking 

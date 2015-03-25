@@ -1456,7 +1456,7 @@ namespace nedtries {
         bitidx=(unsigned)(((size_t) nodelink->trie_parent)>>2);
         assert(bitidx==n);
         assert(head->triebins[bitidx]==node);
-        assert(((((size_t)-1)<<bitidx) & nodekey)==((size_t) 1<<bitidx));
+        assert(!nodekey || ((((size_t)-1)<<bitidx) & nodekey)==((size_t) 1<<bitidx));
         assert(!nodelink->trie_prev);
         while((child=nodelink->trie_next))
         {
@@ -1478,7 +1478,7 @@ namespace nedtries {
           state.smallestkey=(size_t)-1;
           state.largestkey=0;
           triecheckvaliditybranch<trietype, type, fieldoffset, keyfunct>(head, nodelink->trie_child[0], bitidx-1, state);
-          assert(state.smallestkey>=(size_t)1<<bitidx);
+          assert(!state.smallestkey || state.smallestkey>=(size_t)1<<bitidx);
           assert(state.largestkey<(size_t)1<<(bitidx+1));
         }
         if(nodelink->trie_child[1])

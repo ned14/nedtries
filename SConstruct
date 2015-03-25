@@ -1,6 +1,6 @@
 import os, sys, platform
 
-AddOption('--debugbuild', dest='debugbuild', nargs='?', default=0, help='Builds output with debug settings')
+AddOption('--debugbuild', dest='debugbuild', action='store_const', const=1, default=0, help='Builds output with debug settings')
 AddOption('--optdebugbuild', dest='debugbuild', action='store_const', const=2, help='enable optimised debug build')
 AddOption('--useclang', dest='useclang', nargs='?', const=True, help='use clang if it is available')
 AddOption('--analyze', dest='analyze', nargs='?', const=True, help='have the compiler do static analysis')
@@ -42,6 +42,7 @@ if sys.platform=='win32':
     env['CCFLAGS']+=["/GF"]             # Eliminate duplicate strings
     env['CCFLAGS']+=["/Gy"]             # Seperate COMDATs
     env['CCFLAGS']+=["/Zi"]             # Program database debug info
+    env['CCFLAGS']+=["/wd4503"]         # Decorated name length exceeded
     if env.GetOption('debugbuild')==0:
         env['CCFLAGS']+=["/O2", "/MD"]
     elif env.GetOption('debugbuild')==1:
