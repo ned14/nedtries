@@ -42,10 +42,12 @@ if sys.platform=='win32':
     env['CCFLAGS']+=["/GF"]             # Eliminate duplicate strings
     env['CCFLAGS']+=["/Gy"]             # Seperate COMDATs
     env['CCFLAGS']+=["/Zi"]             # Program database debug info
-    if env.GetOption('debugbuild')==1:
-        env['CCFLAGS']+=["/Od", "/MDd"]
-    else:
+    if env.GetOption('debugbuild')==0:
         env['CCFLAGS']+=["/O2", "/MD"]
+    elif env.GetOption('debugbuild')==1:
+        env['CCFLAGS']+=["/Od", "/MDd"]
+    elif env.GetOption('debugbuild')==2:
+        env['CCFLAGS']+=["/O2", "/MDd"]
     env['LIBS']+=["psapi", "user32", "advapi32"]
     env['LINKFLAGS']+=["/DEBUG"]                # Output debug symbols
     env['LINKFLAGS']+=["/LARGEADDRESSAWARE"]    # Works past 2Gb
@@ -53,7 +55,7 @@ if sys.platform=='win32':
 
     env['LINKFLAGS']+=["/MANIFEST"]             # Be UAC compatible
     
-    if env.GetOption('debugbuild')!=0:
+    if env.GetOption('debugbuild')==0:
         env['LINKFLAGS']+=["/OPT:REF", "/OPT:ICF"]  # Eliminate redundants
     if env.GetOption('analyze'):
         env['CCFLAGS']+=["/analyze"]
