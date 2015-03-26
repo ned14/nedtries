@@ -11,6 +11,11 @@ env['CCCOM']   =    env['CCCOM'].replace('$CHANGED_SOURCES','$SOURCES.abspath')
 env['SHCCCOM'] =  env['SHCCCOM'].replace('$CHANGED_SOURCES','$SOURCES.abspath')
 env['CXXCOM']  =   env['CXXCOM'].replace('$CHANGED_SOURCES','$SOURCES.abspath')
 env['SHCXXCOM']= env['SHCXXCOM'].replace('$CHANGED_SOURCES','$SOURCES.abspath')
+# Always have a colour terminal
+try:
+    env['ENV']['TERM']=os.environ['TERM']
+except:
+    pass
 architecture="generic"
 env['CPPDEFINES']=[]
 env['CCFLAGS']=[]
@@ -25,7 +30,7 @@ if sys.platform=="win32":
     if 'INCLUDE' not in os.environ: raise Exception('Are you running this from inside a MSVC tools environment?')
     env['ENV']['INCLUDE']=os.environ['INCLUDE']
     env['ENV']['LIB']=os.environ['LIB']
-    env['ENV']['PATH']=os.environ['PATH']
+env['ENV']['PATH']=os.environ['PATH']
 
 # Am I building a debug or release build?
 if env.GetOption('debugbuild')!=0:
