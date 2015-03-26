@@ -33,7 +33,7 @@ if sys.platform=="win32":
 env['ENV']['PATH']=os.environ['PATH']
 
 # Am I building a debug or release build?
-if env.GetOption('debugbuild')!=0:
+if env.GetOption('debugbuild') is not None:
     env['CPPDEFINES']+=["DEBUG", "_DEBUG"]
     variant=architecture+"/Debug"
 else:
@@ -48,12 +48,12 @@ if sys.platform=='win32':
     env['CCFLAGS']+=["/Gy"]             # Seperate COMDATs
     env['CCFLAGS']+=["/Zi"]             # Program database debug info
     env['CCFLAGS']+=["/wd4503"]         # Decorated name length exceeded
-    if env.GetOption('debugbuild')==0:
-        env['CCFLAGS']+=["/O2", "/MD"]
-    elif env.GetOption('debugbuild')==1:
+    if env.GetOption('debugbuild')==1:
         env['CCFLAGS']+=["/Od", "/MDd"]
     elif env.GetOption('debugbuild')==2:
         env['CCFLAGS']+=["/O2", "/MDd"]
+    else:
+        env['CCFLAGS']+=["/O2", "/MD"]
     env['LIBS']+=["psapi", "user32", "advapi32"]
     env['LINKFLAGS']+=["/DEBUG"]                # Output debug symbols
     env['LINKFLAGS']+=["/LARGEADDRESSAWARE"]    # Works past 2Gb
@@ -61,7 +61,7 @@ if sys.platform=='win32':
 
     env['LINKFLAGS']+=["/MANIFEST"]             # Be UAC compatible
     
-    if env.GetOption('debugbuild')==0:
+    if env.GetOption('debugbuild') is None:
         env['LINKFLAGS']+=["/OPT:REF", "/OPT:ICF"]  # Eliminate redundants
     if env.GetOption('analyze'):
         env['CCFLAGS']+=["/analyze"]
@@ -79,7 +79,7 @@ else:
     env['CCFLAGS']+=["-Wall", "-Wno-unused-variable", "-Wno-unused-function", "-Wno-unused-but-set-variable"]
     env['CXXFLAGS']+=["-std=gnu++0x"]
     env['CCFLAGS']+=["-Wno-strict-aliasing"]
-    if env.GetOption('debugbuild')!=0:
+    if env.GetOption('debugbuild') is not None:
         env['CCFLAGS']+=["-O0", "-g"]
     else:
         env['CCFLAGS']+=["-O2", "-g"]
