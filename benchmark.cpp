@@ -91,9 +91,29 @@ static usCount GetUsCount()
 }
 #endif
 static usCount usCountOverhead, CPUClockSpeed;
-#if defined __GNUC__
-#include "x86intrin.h"
+static unsigned long long rdtsc()
+{
+#ifdef _MSC_VER
+    return (unsigned long long) __rdtsc();
+#else
+#ifdef __rdtsc
+    return (unsigned long long) __rdtsc();
+#elif defined(__x86_64__)
+    unsigned lo, hi;
+    asm volatile ("rdtsc" : "=a"(lo), "=d"(hi));
+    return (unsigned long long) lo | ((unsigned long long) hi<<32);
+#elif defined(__i386__)
+    unsigned count;
+    asm volatile ("rdtsc" : "=a"(count));
+    return (unsigned long long) count;
 #endif
+#if __ARM_ARCH>=6
+    unsigned count;
+    asm volatile ("MRC p15, 0, %0, c9, c13, 0" : "=r"(count));
+    return (unsigned long long) count * 64;
+#endif
+#endif
+}
 static usCount GetClockSpeed()
 {
   int n;
@@ -110,14 +130,14 @@ static usCount GetClockSpeed()
     usCountOverhead=(end-start)/n;
   }
   start=GetUsCount();
-  start_tsc=__rdtsc();
+  start_tsc=rdtsc();
   for(n=0; n<1000; n++)
 #ifdef WIN32
     Sleep(0);
 #else
     sched_yield();
 #endif
-  end_tsc=__rdtsc();
+  end_tsc=rdtsc();
   end=GetUsCount();
   return (usCount)((1000000000000.0*(end_tsc-start_tsc))/(end-start-usCountOverhead));
 }
