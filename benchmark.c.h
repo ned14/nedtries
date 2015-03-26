@@ -39,7 +39,7 @@ typedef struct BENCHMARK_PREFIX(region_node2_s)
 static void BENCHMARK_PREFIX(RunTest)(AlgorithmInfo *ai)
 {
   static BENCHMARK_PREFIX(region_node2_t) nodes[1<<ALLOCATIONS];
-  BENCHMARK_PREFIX(region_node_t) *r;
+  static BENCHMARK_PREFIX(region_node_t) *r;
   int l, n, m;
   usCount start, end;
   printf("\nRunning scalability test for %s\n", ai->name);

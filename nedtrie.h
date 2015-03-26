@@ -1006,7 +1006,7 @@ namespace nedtries {
     const TrieLink_t<type> *RESTRICT nodelink, *RESTRICT rlink=0;
     unsigned bitidx;
 
-    if((node=triebranchprev<trietype, type, fieldoffset, keyfunct>(r, &rlink))) return (type *) node;
+    if((node=triebranchprev<trietype, type, fieldoffset, keyfunct>(r, &rlink)) || !rlink) return (type *) node;
     /* I have reached the top of my trie, so on to prev bin */
     bitidx=(unsigned)(((size_t) rlink->trie_parent)>>2);
     assert(head->triebins[bitidx]==r);
