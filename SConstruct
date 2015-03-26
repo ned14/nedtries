@@ -67,8 +67,14 @@ if sys.platform=='win32':
         env['CCFLAGS']+=["/analyze"]
 else:
     if env.GetOption('useclang'):
-        env['CC']="clang"
-        env['CXX']="clang++"
+        try:
+            env['CC']=os.environ['CC']
+        except:
+            env['CC']="clang"
+        try:
+            env['CXX']=os.environ['CXX']
+        except:
+            env['CXX']="clang++"
     env['CPPDEFINES']+=[]
     env['CCFLAGS']+=["-Wall", "-Wno-unused-variable", "-Wno-unused-function", "-Wno-unused-but-set-variable"]
     env['CXXFLAGS']+=["-std=gnu++0x"]
