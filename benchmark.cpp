@@ -91,9 +91,8 @@ static usCount GetUsCount()
 }
 #endif
 static usCount usCountOverhead, CPUClockSpeed;
-#ifdef __GNUC__
+#if defined __GNUC__
 #include "x86intrin.h"
-#define __rdtsc() __builtin_ia32_rdtsc()
 #endif
 static usCount GetClockSpeed()
 {
