@@ -30,6 +30,7 @@ DEALINGS IN THE SOFTWARE.
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h> /* for memset */
 #include <limits.h> /* For INT_MAX */
 
 #ifdef _MSC_VER
