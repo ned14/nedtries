@@ -6,7 +6,7 @@
 	<h2 style="text-decoration: none;">by Niall Douglas</h2>
 	<p>Web site: <a href="http://www.nedprod.com/programs/portable/nedtries/">http://www.nedprod.com/programs/portable/nedtries/</a></p>
 	<hr /></div>
-<p>master branch CI status: <a href="https://travis-ci.org/ned14/nedtries"><img src="https://travis-ci.org/ned14/nedtries.svg?branch=master"/></a> <a href='https://ci.nedprod.com/view/All/job/nedtries%20Test%20Win8%20VS2013/'><img src='https://ci.nedprod.com/view/All/job/nedtries%20Test%20Win8%20VS2013/badge/icon'></a></p>
+<p>master branch CI status: Linux: <a href="https://travis-ci.org/ned14/nedtries"><img src="https://travis-ci.org/ned14/nedtries.svg?branch=master"/></a> Windows: <a href="https://ci.appveyor.com/project/ned14/nedtries"><img src="https://ci.appveyor.com/api/projects/status/wcvgw1lx8in5c36p?svg=true"/></a></p>
 <p>Enclosed is nedtries, an in-place bitwise binary Fredkin trie algorithm which allows for near 
 constant time insertions, deletions, finds,
 <span style="text-decoration: underline"> <strong>closest fit finds</strong></span> 
