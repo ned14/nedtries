@@ -271,7 +271,7 @@ typedef struct AlgorithmInfo_t
 #undef REGION_FOREACH
 #undef REGION_HASNODEHEADER
 
-#ifdef __cplusplus
+#if defined(__cplusplus) && NEDTRIE_ENABLE_STL_CONTAINERS
 static size_t nodekeys[1<<ALLOCATIONS];
 template<class stlcontainer> void RunTest(AlgorithmInfo *ai)
 {
@@ -378,7 +378,7 @@ int main(void)
     algorithms[algorithmslen].name="hash";
      hash_RunTest(algorithms+algorithmslen++);
   }
-#ifdef __cplusplus
+#if defined(__cplusplus) && NEDTRIE_ENABLE_STL_CONTAINERS
   if(0)
   {
     using namespace std;

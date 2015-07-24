@@ -76,9 +76,8 @@ else:
         except:
             env['CXX']="clang++"
     env['CPPDEFINES']+=[]
-    env['CCFLAGS']+=["-Wall", "-Wno-unused-variable", "-Wno-unused-function", "-Wno-unused-but-set-variable"]
+    env['CCFLAGS']+=["-Wall", "-Wextra", "-Wno-unused-variable", "-Wno-unused-function", "-Wno-unused-but-set-variable", "-Wno-unused-parameter"]
     env['CXXFLAGS']+=["-std=gnu++0x"]
-    env['CCFLAGS']+=["-Wno-strict-aliasing"]
     if env.GetOption('debugbuild') is not None:
         env['CCFLAGS']+=["-O0", "-g"]
     else:

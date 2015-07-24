@@ -32,7 +32,7 @@ size_t fookeyfunct(const foo_t *r)
 
 NEDTRIE_GENERATE(static, foo_tree_s, foo_s, link, fookeyfunct, NEDTRIE_NOBBLEZEROS(foo_tree_s))
 
-#ifdef __cplusplus
+#if defined(__cplusplus) && NEDTRIE_ENABLE_STL_CONTAINERS
 struct keyfunct : public std::unary_function<int, size_t>
 {
     size_t operator()(const int &) const
@@ -65,7 +65,7 @@ int main(void)
   assert(!NEDTRIE_PREV(foo_tree_s, &footree, &b));
   assert(!NEDTRIE_NEXT(foo_tree_s, &footree, &b));
 
-#if defined(__cplusplus) && 1
+#if defined(__cplusplus) && NEDTRIE_ENABLE_STL_CONTAINERS
   printf("General workout of the C++ API ...\n");
   assert(keyfunct()(78)==5);
   using namespace nedtries;

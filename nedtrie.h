@@ -1525,6 +1525,7 @@ namespace nedtries {
 #endif /* !NDEBUG */
   }
 
+#if NEDTRIE_ENABLE_STL_CONTAINERS
   /*! \def HAVE_CPP0XRVALUEREFS
   \ingroup C++
   \brief Enables rvalue references
@@ -1820,6 +1821,8 @@ namespace nedtries {
   /*! \class trie_map
   \ingroup C++
   \brief A STL container wrapper using nedtries to map keys to values.
+  
+  \note Enable this by defining `NEDTRIE_ENABLE_STL_CONTAINERS`.
 
   This class can be used to wrap any arbitrary STL container with nedtrie associativity. For example, if you
   had a std::vector<> list of items, you could add nedtrie's fast nearly constant time algorithm for accessing them -
@@ -2134,6 +2137,8 @@ namespace nedtries {
   \ingroup C++
   \brief A STL container wrapper using nedtries to map keys to values.
 
+  \note Enable this by defining `NEDTRIE_ENABLE_STL_CONTAINERS`.
+
   This class can be used to wrap any arbitrary STL container with nedtrie associativity. For example, if you
   had a std::vector<> list of items, you could add nedtrie's fast nearly constant time algorithm for accessing them -
   though one would expect that a std::list<> would be the most common combination. There is no strict reason why
@@ -2393,6 +2398,8 @@ namespace nedtries {
   {
     return static_cast<const stlcontainer &>(a)>=static_cast<const stlcontainer &>(b);
   }
+
+#endif
 
 } /* namespace */
 

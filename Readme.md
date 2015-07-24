@@ -259,6 +259,8 @@ NEDTRIE_NFIND(). What's the difference? Here's a quick table:</p>
 	</tr>
 </table>
 <h2><a name="cpp-usage">D. C++ Usage:</a></h2>
+<p>NOTE: Enable the C++ STL containers using the <tt>NEDTRIE_ENABLE_STL_CONTAINERS</tt> macro. You are
+suggested to avoid the C++ STL containers where possible, they were hacked together.</p>
 <p>C++ usage is even easier than the C macro usage thanks to nedtries::trie_map&lt;&gt; 
 and nedtries::trie_multimap&lt;&gt; 
 which is API compatible with the std::map&lt;&gt;, std::multimap&lt;&gt; and std::unordered_map&lt;&gt; 
@@ -307,6 +309,8 @@ Please contact ned Productions Consulting Ltd. for further details</a>.</p>
 <ul>
 	<li>Added some support for architectures where CHAR_BIT is not 8. Thanks
     to Sebastian Ramadan for contributing this.</li>
+    <li>Disable the STL container being compiled by default, and stop suppressing
+    warnings about strict aliasing type punning.</li>
 </ul>
 <h3>v1.02 Final (9th July 2012):</h3>
 <ul>
