@@ -1,10 +1,8 @@
-﻿<html xmlns="http://www.w3.org/1999/xhtml">
-<body>
-
-<div style="text-align: center">
+﻿<div style="text-align: center">
 	<h1 style="text-decoration: underline">nedtries v1.03 trunk (?)</h1>
 	<h2 style="text-decoration: none;">by Niall Douglas</h2>
 	<p>Web site: <a href="http://www.nedprod.com/programs/portable/nedtries/">http://www.nedprod.com/programs/portable/nedtries/</a></p>
+	<p>API Reference: <a href="https://ned14.github.io/nedtries/nedtrie_8h.html">https://ned14.github.io/nedtries/nedtrie_8h.html</a></p>
 	<hr /></div>
 <p>master branch CI status: Linux: <a href="https://travis-ci.org/ned14/nedtries"><img src="https://travis-ci.org/ned14/nedtries.svg?branch=master"/></a> Windows: <a href="https://ci.appveyor.com/project/ned14/nedtries"><img src="https://ci.appveyor.com/api/projects/status/wcvgw1lx8in5c36p?svg=true"/></a></p>
 <p>Enclosed is nedtries, an in-place bitwise binary Fredkin trie algorithm which allows for near 
@@ -361,6 +359,3 @@ http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/SFMT/index.html</a>).</li>
 	<li><span class="gitcommit">[master e4d1245]</span> First release.</li>
 </ul>
 
-</body>
-
-</html>
