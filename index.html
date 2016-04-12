@@ -93,10 +93,9 @@ $(document).ready(function(){initNavTree('index.html','');});
 <div class="title">nedtries Documentation</div>  </div>
 </div><!--header-->
 <div class="contents">
-<div class="textblock"><p>&lt;html xmlns="http://www.w3.org/1999/xhtml"&gt; &lt;body&gt;</p>
-<div style="text-align: center"> <h1 style="text-decoration: underline">nedtries v1.03 trunk (?)</h1>
+<div class="textblock"><div style="text-align: center"> <h1 style="text-decoration: underline">nedtries v1.03 trunk (?)</h1>
 </div><div style="text-align: center"> <h2 style="text-decoration: none;">by Niall Douglas</h2>
-</div><div style="text-align: center"> </div><div style="text-align: center">Web site: <a href="http://www.nedprod.com/programs/portable/nedtries/">http://www.nedprod.com/programs/portable/nedtries/</a></div><div style="text-align: center"> <hr/>
+</div><div style="text-align: center"> </div><div style="text-align: center">Web site: <a href="http://www.nedprod.com/programs/portable/nedtries/">http://www.nedprod.com/programs/portable/nedtries/</a></div><div style="text-align: center"> </div><div style="text-align: center">API Reference: <a href="https://ned14.github.io/nedtries/nedtrie_8h.html">https://ned14.github.io/nedtries/nedtrie_8h.html</a></div><div style="text-align: center"> <hr/>
 </div> <p>master branch CI status: Linux: <a href="https://travis-ci.org/ned14/nedtries"></a> Windows: <a href="https://ci.appveyor.com/project/ned14/nedtries"></a></p>
 <p>Enclosed is nedtries, an in-place bitwise binary Fredkin trie algorithm which allows for near constant time insertions, deletions, finds, <span style="text-decoration: underline"> <b>closest fit finds</b></span> and iteration. On modern hardware it is approximately 50-100% faster than red-black binary trees, it handily beats even the venerable O(1) hash table for less than 3000 objects and it is barely slower than the hash table for 10000 objects. Past 10000 objects you probably ought to use a hash table though, and if you need <a href="#nfindversuscfind">nearest fit rather than close fit</a> then red-black trees are still optimal.</p>
 <p>It is licensed under the <a href="http://www.boost.org/LICENSE_1_0.txt" target="_blank">Boost Software License</a> which basically means you can do anything you like with it. Commercial support is available from <a href="http://www.nedproductions.biz/" target="_blank">ned Productions Limited</a>.</p>
@@ -287,8 +286,6 @@ Due to the breaking change in what NEDTRIE_NFIND means and does, bumped version 
 <li>
 <span class="gitcommit">[master e4d1245]</span> First release. </li>
 </ul>
-<p>&lt;/body&gt;</p>
-<p>&lt;/html&gt; </p>
 </div></div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
